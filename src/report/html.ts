@@ -20,7 +20,7 @@ function renderTestCase(test: TestCase): string {
     </li>`;
 }
 
-export function renderHtmlReport(summary: RunSummary): string {
+export function renderHtmlReport(summary: RunSummary, dashboardUrl?: string | null): string {
   const allTests = summary.suites.flatMap((s) => s.tests);
   const failing = allTests.filter((t) => t.status === "failed" || t.status === "error");
   const rest = allTests.filter((t) => t.status !== "failed" && t.status !== "error");
@@ -34,7 +34,8 @@ export function renderHtmlReport(summary: RunSummary): string {
   body { font-family: -apple-system, BlinkMacSystemFont, sans-serif; margin: 0; padding: 32px; background: #f4f6f8; color: #161a1f; }
   h1 { font-size: 20px; margin: 0 0 8px; }
   h2 { font-size: 15px; text-transform: uppercase; letter-spacing: 0.04em; color: #5b6670; }
-  .totals { margin-bottom: 24px; font-size: 14px; color: #5b6670; }
+  .totals { margin-bottom: 8px; font-size: 14px; color: #5b6670; }
+  .dashboard-link { margin-bottom: 24px; font-size: 14px; }
   ul.test-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
   li.test { border: 1px solid #d7dee3; border-radius: 8px; padding: 12px 16px; background: #fff; }
   li.test.failed, li.test.error { border-color: #b23a2e; background: #fbe7e4; }
@@ -50,6 +51,7 @@ export function renderHtmlReport(summary: RunSummary): string {
 <body>
   <h1>Kestrel test report</h1>
   <div class="totals">${summary.passed} passed &middot; ${summary.failed} failed &middot; ${summary.skipped} skipped &middot; ${summary.errored} errored</div>
+  ${dashboardUrl ? `<div class="dashboard-link"><a href="${dashboardUrl}">View on dashboard →</a></div>` : ""}
   ${failing.length > 0 ? `<section><h2>Failures</h2><ul class="test-list">${failing.map(renderTestCase).join("")}</ul></section>` : ""}
   <section><h2>All tests</h2><ul class="test-list">${rest.map(renderTestCase).join("")}</ul></section>
 </body>

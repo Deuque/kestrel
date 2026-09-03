@@ -51,26 +51,26 @@ async function main(): Promise<void> {
     testCommandExitCode,
   };
 
+  const dashboardUrl = config.dashboard
+    ? await publishToDashboard(config.dashboard, summary, config.platform)
+    : null;
+
   const reportDir = config.reportDir!;
   mkdirSync(reportDir, { recursive: true });
 
-  const markdown = renderSummaryMarkdown(summary);
+  const markdown = renderSummaryMarkdown(summary, dashboardUrl);
   writeFileSync(join(reportDir, "summary.md"), markdown);
-  writeFileSync(join(reportDir, "index.html"), renderHtmlReport(summary));
+  writeFileSync(join(reportDir, "index.html"), renderHtmlReport(summary, dashboardUrl));
   writeFileSync(join(reportDir, "summary.json"), JSON.stringify(summary, null, 2));
 
   console.log("");
   console.log(markdown);
   console.log("");
   console.log(`Report written to ${reportDir}/`);
+  if (dashboardUrl) console.log(`Published to dashboard: ${dashboardUrl}`);
 
   if (process.env.GITHUB_STEP_SUMMARY) {
     appendFileSync(process.env.GITHUB_STEP_SUMMARY, markdown + "\n");
-  }
-
-  if (config.dashboard) {
-    const url = await publishToDashboard(config.dashboard, summary, config.platform);
-    if (url) console.log(`Published to dashboard: ${url}`);
   }
 
   process.exit(summary.failed + summary.errored > 0 ? 1 : 0);

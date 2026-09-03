@@ -1,12 +1,13 @@
 import type { RunSummary } from "../types.js";
 
-export function renderSummaryMarkdown(summary: RunSummary): string {
+export function renderSummaryMarkdown(summary: RunSummary, dashboardUrl?: string | null): string {
   const lines: string[] = [];
   lines.push("## Kestrel test run");
   lines.push("");
   lines.push(
     `**${summary.passed} passed**, **${summary.failed} failed**, ${summary.skipped} skipped, ${summary.errored} errored`
   );
+  if (dashboardUrl) lines.push(`Dashboard: ${dashboardUrl}`);
   lines.push("");
 
   const failures = summary.suites.flatMap((suite) =>
