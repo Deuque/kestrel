@@ -64,6 +64,13 @@ async function ensureUiAutomator2Driver(): Promise<void> {
   ]);
 }
 
+/**
+ * Checks for the exact pinned version, not just presence — this makes it
+ * safe to cache ~/.appium (where the driver lands) across CI runs: a stale
+ * cache holding an older driver version is detected as "not installed" and
+ * gets reinstalled, rather than silently keeping an outdated driver after
+ * UIAUTOMATOR2_DRIVER_VERSION is bumped.
+ */
 async function isUiAutomator2Installed(): Promise<boolean> {
   const { stdout, code } = await runCapture("npx", [
     "--yes",
@@ -75,8 +82,8 @@ async function isUiAutomator2Installed(): Promise<boolean> {
   ]);
   if (code !== 0) return false;
   try {
-    const installed = JSON.parse(stdout) as Record<string, unknown>;
-    return Object.hasOwn(installed, "uiautomator2");
+    const installed = JSON.parse(stdout) as Record<string, { version?: string }>;
+    return installed.uiautomator2?.version === UIAUTOMATOR2_DRIVER_VERSION;
   } catch {
     return false;
   }
