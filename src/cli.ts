@@ -4,6 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { startAppiumServer, stopAppiumServer } from "./appiumServer.js";
 import { loadConfig, type KestrelConfig } from "./config.js";
+import { publishToDashboard } from "./dashboard.js";
 import { findJUnitFiles, parseJUnitFile } from "./junit.js";
 import { renderHtmlReport } from "./report/html.js";
 import { renderSummaryMarkdown } from "./report/summary.js";
@@ -65,6 +66,11 @@ async function main(): Promise<void> {
 
   if (process.env.GITHUB_STEP_SUMMARY) {
     appendFileSync(process.env.GITHUB_STEP_SUMMARY, markdown + "\n");
+  }
+
+  if (config.dashboard) {
+    const url = await publishToDashboard(config.dashboard, summary, config.platform);
+    if (url) console.log(`Published to dashboard: ${url}`);
   }
 
   process.exit(summary.failed + summary.errored > 0 ? 1 : 0);

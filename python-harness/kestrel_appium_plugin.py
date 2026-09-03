@@ -11,6 +11,11 @@ conftest.py, no AppiumService setup of its own. It provides:
     filename, so kestrel's report can match a screenshot to its result
     exactly (no filename-guessing needed) and a passing test's screenshot
     is visible proof it actually ran, not just a green checkmark.
+  - on failure only: also dumps the accessibility page source (the actual
+    element tree UiAutomator2 saw) next to the screenshot as a .xml file —
+    kestrel's report doesn't surface it, but it's in the same results
+    artifact, and it's the fastest way to confirm what a locator should
+    have matched instead of guessing from a screenshot alone.
 
 kestrel runs testCommand with these env vars already set:
   KESTREL_APPIUM_SERVER_URL   e.g. http://localhost:4723
@@ -71,8 +76,15 @@ def pytest_runtest_makereport(item, call):
         return
 
     os.makedirs(screenshots_dir, exist_ok=True)
-    path = os.path.join(screenshots_dir, f"{_slug(item.nodeid)}.png")
+    base = os.path.join(screenshots_dir, _slug(item.nodeid))
     try:
-        driver.get_screenshot_as_file(path)
+        driver.get_screenshot_as_file(f"{base}.png")
     except Exception:
         pass
+
+    if report.failed:
+        try:
+            with open(f"{base}.xml", "w") as f:
+                f.write(driver.page_source)
+        except Exception:
+            pass

@@ -6,7 +6,8 @@ A generic CI test runner: point it at an APK and raw Appium test files (or
 any other integration test suite), and it runs them, collects the JUnit
 results and screenshots, and produces a report — pass/fail counts,
 per-failure descriptions, embedded screenshots — as a build artifact your CI
-can publish. No dashboard yet; that's the planned next layer on top of this.
+can publish. Optionally also publishes each run to a small hosted dashboard
+(session history across every project that uses it) — see "Dashboard" below.
 
 It runs on **your own CI infrastructure** — GitHub Actions today, since
 that's what the first real use case (below) targets, but nothing here is
@@ -92,6 +93,29 @@ normalize both the test name and each screenshot filename (lowercase, strip
 non-alphanumerics) and match on substring containment. Name screenshots
 after their test and it'll match reliably.
 
+## Dashboard
+
+Live at **[deuque.github.io/kestrel](https://deuque.github.io/kestrel/)** —
+a static site (no build step, no server) on this repo's `gh-pages` branch.
+Session list on the left; click one to see its failures and screenshots.
+
+To publish a run there, add to `kestrel.config.json`:
+
+```json
+"dashboard": {
+  "repo": "Deuque/kestrel",
+  "project": "your-project-name"
+}
+```
+
+and set `KESTREL_DASHBOARD_TOKEN` (a GitHub token with push access to that
+repo) in the environment kestrel runs in — in CI, a repo secret. Without the
+token set, kestrel logs a warning and skips publishing; it never fails the
+actual test run over a missing/broken dashboard push. Each run lands as
+`runs/<id>.json` (screenshots embedded as base64, same as the HTML report)
+plus an updated `runs/index.json` manifest, committed and pushed straight to
+`gh-pages` — no server, no database.
+
 ## Try it (generic path, no Android/Appium needed)
 
 ```
@@ -128,6 +152,6 @@ This is a shell, not a finished tool:
   real; the `driver` fixture + screenshot-on-failure plugin is written but
   not yet run against a real device/APK — that's the next step, against the
   klasha app.
-- No dashboard — `reportDir` is the whole story for now, meant to be
-  uploaded via `actions/upload-artifact` (or your CI's equivalent) and
-  opened directly.
+- The dashboard is minimal by design — a session list and a detail view,
+  no filtering/search/trends yet. Verified end-to-end (published a real run,
+  confirmed it rendered) against the live site before this was written.

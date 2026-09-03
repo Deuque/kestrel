@@ -1,17 +1,5 @@
-import { readFileSync } from "node:fs";
-import { extname } from "node:path";
+import { toDataUri } from "../dataUri.js";
 import type { RunSummary, TestCase } from "../types.js";
-
-function toDataUri(path: string): string | null {
-  try {
-    const buf = readFileSync(path);
-    const ext = extname(path).slice(1).toLowerCase();
-    const mime = ext === "jpg" ? "jpeg" : ext;
-    return `data:image/${mime};base64,${buf.toString("base64")}`;
-  } catch {
-    return null;
-  }
-}
 
 const ESCAPE_MAP: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 

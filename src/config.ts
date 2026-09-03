@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import type { DashboardConfig } from "./dashboard.js";
 
 export interface AppiumConfig {
   /** Path to the APK under test. Installed via `adb install -r` before the suite runs. */
@@ -43,6 +44,8 @@ export interface KestrelConfig {
   reportDir?: string;
   /** Required when platform is "appium". */
   appium?: AppiumConfig;
+  /** Publishes this run to a gh-pages dashboard after the report is written. Omit to skip. */
+  dashboard?: DashboardConfig;
 }
 
 export function loadConfig(path: string): KestrelConfig {
@@ -71,5 +74,6 @@ export function loadConfig(path: string): KestrelConfig {
     screenshotsDir: parsed.screenshotsDir,
     reportDir: parsed.reportDir ?? "kestrel-report",
     appium: parsed.appium,
+    dashboard: parsed.dashboard,
   };
 }
