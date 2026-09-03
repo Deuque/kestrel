@@ -11,8 +11,15 @@ export interface DashboardConfig {
   repo: string;
   /** Branch GitHub Pages serves. Must already exist. Default "gh-pages". */
   branch?: string;
-  /** Label shown on the dashboard for this run's source, e.g. "klasha-mobile-app". */
-  project?: string;
+  /**
+   * Identifies this project on the dashboard. Slugified and used as the
+   * on-disk namespace (projects/<slug>/…), so two projects publishing at
+   * the same time never touch the same files — the only thing they share
+   * is the top-level projects/index.json, which retry-on-push-conflict
+   * (below) protects. Required: there's no safe shared default that
+   * wouldn't risk unrelated projects colliding in one bucket.
+   */
+  project: string;
 }
 
 interface DashboardRunRecord {
@@ -38,14 +45,18 @@ interface DashboardRunRecord {
   }[];
 }
 
+const MAX_PUSH_ATTEMPTS = 5;
+
 /**
- * Pushes this run's summary — screenshots embedded as base64 — to the
- * dashboard's gh-pages branch as runs/<id>.json, and updates
- * runs/index.json. Needs a GitHub token with push access to `config.repo`
- * in KESTREL_DASHBOARD_TOKEN. Never throws: a dashboard publish failure
- * (missing token, network blip, push race) is logged and skipped rather
- * than failing the actual test run — the real report already exists
- * locally regardless of whether this succeeds.
+ * Pushes this run's summary — screenshots embedded as base64 — to
+ * projects/<slug>/runs/<id>.json on the dashboard's gh-pages branch,
+ * updates that project's runs/index.json, and upserts this project's entry
+ * in the top-level projects/index.json. Needs a GitHub token with push
+ * access to `config.repo` in KESTREL_DASHBOARD_TOKEN. Never throws: a
+ * dashboard publish failure (missing token, network blip, exhausted
+ * retries) is logged and skipped rather than failing the actual test run —
+ * the real report already exists locally regardless of whether this
+ * succeeds.
  */
 export async function publishToDashboard(
   config: DashboardConfig,
@@ -58,86 +69,151 @@ export async function publishToDashboard(
     return null;
   }
 
+  const slug = slugify(config.project);
   const branch = config.branch ?? "gh-pages";
+  const remote = `https://x-access-token:${token}@github.com/${config.repo}.git`;
   const workDir = mkdtempSync(join(tmpdir(), "kestrel-dashboard-"));
 
-  try {
-    await run("git", [
-      "clone",
-      "--quiet",
-      "--depth",
-      "1",
-      "--branch",
-      branch,
-      `https://x-access-token:${token}@github.com/${config.repo}.git`,
-      workDir,
-    ]);
-
-    const id = `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomBytes(3).toString("hex")}`;
-    const record: DashboardRunRecord = {
-      id,
-      project: config.project ?? "unlabeled",
-      platform,
-      startedAt: summary.startedAt,
-      finishedAt: summary.finishedAt,
-      passed: summary.passed,
-      failed: summary.failed,
-      skipped: summary.skipped,
-      errored: summary.errored,
-      suites: summary.suites.map((suite) => ({
-        name: suite.name,
-        tests: suite.tests.map((test) => ({
-          name: test.name,
-          classname: test.classname,
-          status: test.status,
-          timeSeconds: test.timeSeconds,
-          message: test.message,
-          screenshot: test.screenshotPath ? toDataUri(test.screenshotPath) : null,
-        })),
+  const id = `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomBytes(3).toString("hex")}`;
+  const record: DashboardRunRecord = {
+    id,
+    project: config.project,
+    platform,
+    startedAt: summary.startedAt,
+    finishedAt: summary.finishedAt,
+    passed: summary.passed,
+    failed: summary.failed,
+    skipped: summary.skipped,
+    errored: summary.errored,
+    suites: summary.suites.map((suite) => ({
+      name: suite.name,
+      tests: suite.tests.map((test) => ({
+        name: test.name,
+        classname: test.classname,
+        status: test.status,
+        timeSeconds: test.timeSeconds,
+        message: test.message,
+        screenshot: test.screenshotPath ? toDataUri(test.screenshotPath) : null,
       })),
-    };
+    })),
+  };
 
-    mkdirSync(join(workDir, "runs"), { recursive: true });
-    writeFileSync(join(workDir, "runs", `${id}.json`), JSON.stringify(record));
+  try {
+    await run("git", ["clone", "--quiet", "--depth", "1", "--branch", branch, remote, workDir]);
 
-    const indexPath = join(workDir, "runs", "index.json");
-    const index: unknown[] = existsSync(indexPath) ? JSON.parse(readFileSync(indexPath, "utf8")) : [];
-    index.unshift({
-      id,
-      project: record.project,
-      platform: record.platform,
-      startedAt: record.startedAt,
-      passed: record.passed,
-      failed: record.failed,
-      skipped: record.skipped,
-      errored: record.errored,
-    });
-    // Keep the manifest small — dashboard fetches this on every page load.
-    writeFileSync(indexPath, JSON.stringify(index.slice(0, 200), null, 2));
+    for (let attempt = 1; attempt <= MAX_PUSH_ATTEMPTS; attempt++) {
+      writeRunFiles(workDir, slug, record);
 
-    await run("git", ["-C", workDir, "add", "-A"]);
-    await run("git", [
-      "-C",
-      workDir,
-      "-c",
-      "user.email=kestrel@localhost",
-      "-c",
-      "user.name=kestrel",
-      "commit",
-      "--quiet",
-      "-m",
-      `Publish run ${id}`,
-    ]);
-    await run("git", ["-C", workDir, "push", "--quiet", "origin", branch]);
+      await run("git", ["-C", workDir, "add", "-A"]);
+      const changed = await hasStagedChanges(workDir);
+      if (changed) {
+        await run("git", [
+          "-C",
+          workDir,
+          "-c",
+          "user.email=kestrel@localhost",
+          "-c",
+          "user.name=kestrel",
+          "commit",
+          "--quiet",
+          "-m",
+          `Publish ${slug} run ${id}`,
+        ]);
+      }
 
-    const [owner, repoName] = config.repo.split("/");
-    return `https://${owner.toLowerCase()}.github.io/${repoName}/`;
+      const pushed = await tryPush(workDir, branch);
+      if (pushed) {
+        const [owner, repoName] = config.repo.split("/");
+        return `https://${owner.toLowerCase()}.github.io/${repoName}/#${slug}`;
+      }
+
+      // Someone else pushed first — pull their state in and redo our
+      // writes on top of it, rather than clobbering what they just added.
+      await run("git", ["-C", workDir, "fetch", "--quiet", "origin", branch]);
+      await run("git", ["-C", workDir, "reset", "--quiet", "--hard", `origin/${branch}`]);
+    }
+
+    console.warn(`Dashboard publish: gave up after ${MAX_PUSH_ATTEMPTS} conflicting pushes.`);
+    return null;
   } catch (err) {
     console.warn(`Dashboard publish failed, continuing without it: ${(err as Error).message}`);
     return null;
   } finally {
     rmSync(workDir, { recursive: true, force: true });
   }
+}
+
+function writeRunFiles(workDir: string, slug: string, record: DashboardRunRecord): void {
+  const projectDir = join(workDir, "projects", slug);
+  const runsDir = join(projectDir, "runs");
+  mkdirSync(runsDir, { recursive: true });
+  writeFileSync(join(runsDir, `${record.id}.json`), JSON.stringify(record));
+
+  const runIndexPath = join(runsDir, "index.json");
+  const runIndex = readJsonArray(runIndexPath);
+  runIndex.unshift({
+    id: record.id,
+    project: record.project,
+    platform: record.platform,
+    startedAt: record.startedAt,
+    passed: record.passed,
+    failed: record.failed,
+    skipped: record.skipped,
+    errored: record.errored,
+  });
+  // Keep each project's manifest small — the dashboard fetches this on every load.
+  writeFileSync(runIndexPath, JSON.stringify(runIndex.slice(0, 200), null, 2));
+
+  const projectIndexPath = join(workDir, "projects", "index.json");
+  const projectIndex = readJsonArray(projectIndexPath) as Array<Record<string, unknown>>;
+  const existing = projectIndex.findIndex((p) => p.id === slug);
+  const projectEntry = {
+    id: slug,
+    project: record.project,
+    lastPublishedAt: record.finishedAt,
+    lastPassed: record.passed,
+    lastFailed: record.failed,
+  };
+  if (existing >= 0) projectIndex[existing] = projectEntry;
+  else projectIndex.push(projectEntry);
+  writeFileSync(projectIndexPath, JSON.stringify(projectIndex, null, 2));
+}
+
+function readJsonArray(path: string): unknown[] {
+  if (!existsSync(path)) return [];
+  try {
+    const parsed = JSON.parse(readFileSync(path, "utf8"));
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+async function hasStagedChanges(workDir: string): Promise<boolean> {
+  const { code } = await runCapture("git", ["-C", workDir, "diff", "--cached", "--quiet"]);
+  return code !== 0;
+}
+
+async function tryPush(workDir: string, branch: string): Promise<boolean> {
+  const { code } = await runCapture("git", ["-C", workDir, "push", "--quiet", "origin", branch]);
+  return code === 0;
+}
+
+function slugify(project: string): string {
+  const slug = project
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (!slug) throw new Error(`dashboard.project "${project}" produced an empty slug`);
+  return slug;
+}
+
+function runCapture(cmd: string, args: string[]): Promise<{ code: number }> {
+  return new Promise((resolvePromise) => {
+    const child = spawn(cmd, args, { stdio: ["ignore", "ignore", "inherit"] });
+    child.on("close", (code) => resolvePromise({ code: code ?? 1 }));
+    child.on("error", () => resolvePromise({ code: 1 }));
+  });
 }
 
 function run(cmd: string, args: string[]): Promise<void> {

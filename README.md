@@ -97,7 +97,9 @@ after their test and it'll match reliably.
 
 Live at **[deuque.github.io/kestrel](https://deuque.github.io/kestrel/)** —
 a static site (no build step, no server) on this repo's `gh-pages` branch.
-Session list on the left; click one to see its failures and screenshots.
+Project list first; pick one for its session history, click a session for
+failures and screenshots. Directly linkable: `#<project-slug>` jumps to a
+project, `#<project-slug>/<run-id>` to one specific run.
 
 To publish a run there, add to `kestrel.config.json`:
 
@@ -111,10 +113,17 @@ To publish a run there, add to `kestrel.config.json`:
 and set `KESTREL_DASHBOARD_TOKEN` (a GitHub token with push access to that
 repo) in the environment kestrel runs in — in CI, a repo secret. Without the
 token set, kestrel logs a warning and skips publishing; it never fails the
-actual test run over a missing/broken dashboard push. Each run lands as
-`runs/<id>.json` (screenshots embedded as base64, same as the HTML report)
-plus an updated `runs/index.json` manifest, committed and pushed straight to
-`gh-pages` — no server, no database.
+actual test run over a missing/broken dashboard push.
+
+Each project is fully namespaced under `projects/<slug>/` (slugified from
+`project`) — its own `runs/<id>.json` files (screenshots embedded as base64)
+and its own `runs/index.json` manifest, plus an entry in the top-level
+`projects/index.json`. Different projects publishing at the same time never
+touch the same files. A publish that loses a push race (two runs of the
+*same* project close together) retries — fetch, replay the write on top of
+the newer state, push again — up to 5 times before giving up and logging a
+warning, rather than failing the test run or silently overwriting the other
+run's data.
 
 ## Try it (generic path, no Android/Appium needed)
 

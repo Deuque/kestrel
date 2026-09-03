@@ -66,6 +66,9 @@ export function loadConfig(path: string): KestrelConfig {
   if (platform === "appium" && !parsed.appium?.apk) {
     throw new Error(`config at ${absolutePath}: platform "appium" requires "appium.apk"`);
   }
+  if (parsed.dashboard && (!parsed.dashboard.repo || !parsed.dashboard.project)) {
+    throw new Error(`config at ${absolutePath}: "dashboard" requires both "repo" and "project"`);
+  }
 
   return {
     platform,
