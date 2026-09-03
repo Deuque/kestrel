@@ -5,5 +5,12 @@
     "lastPublishedAt": "2026-09-03T13:59:13.796Z",
     "lastPassed": 0,
     "lastFailed": 1
+  },
+  {
+    "id": "kestrel-newtab-link-smoke-test",
+    "project": "kestrel-newtab-link-smoke-test",
+    "lastPublishedAt": "2026-09-03T17:13:10.820Z",
+    "lastPassed": 1,
+    "lastFailed": 1
   }
 ]
