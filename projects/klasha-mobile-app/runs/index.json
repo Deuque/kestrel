@@ -1,5 +1,15 @@
 [
   {
+    "id": "2026-09-03T17-44-50-053Z-8618fb",
+    "project": "klasha-mobile-app",
+    "platform": "appium",
+    "startedAt": "2026-09-03T17:43:35.806Z",
+    "passed": 0,
+    "failed": 1,
+    "skipped": 0,
+    "errored": 0
+  },
+  {
     "id": "2026-09-03T13-59-13-797Z-c5ba99",
     "project": "klasha-mobile-app",
     "platform": "appium",
