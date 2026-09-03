@@ -1,12 +1,1 @@
-[
-  {
-    "id": "2026-09-03T11-32-49-364Z-aa0301",
-    "project": "kestrel-dashboard-smoke-test",
-    "platform": "integration",
-    "startedAt": "2026-09-03T11:32:47.604Z",
-    "passed": 1,
-    "failed": 1,
-    "skipped": 0,
-    "errored": 0
-  }
-]
+[]
