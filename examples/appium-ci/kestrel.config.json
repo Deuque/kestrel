@@ -1,0 +1,10 @@
+{
+  "platform": "appium",
+  "testCommand": "pytest tests/ --junitxml=results/junit.xml -p kestrel_appium_plugin",
+  "resultsDir": "results",
+  "screenshotsDir": "results/screenshots",
+  "reportDir": "kestrel-report",
+  "appium": {
+    "apk": "app-debug.apk"
+  }
+}

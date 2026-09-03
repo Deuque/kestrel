@@ -1,0 +1,78 @@
+"""
+Pytest plugin kestrel injects into the test process via PYTHONPATH.
+
+This is what lets a calling repo have *only* raw test files — no
+conftest.py, no AppiumService setup of its own. It provides:
+
+  - a `driver` fixture: an Appium session already connected to the server
+    kestrel started and pointed at the APK kestrel installed.
+  - automatic screenshot capture after every test — pass or fail — saved
+    under KESTREL_SCREENSHOTS_DIR using the test's own node id as the
+    filename, so kestrel's report can match a screenshot to its result
+    exactly (no filename-guessing needed) and a passing test's screenshot
+    is visible proof it actually ran, not just a green checkmark.
+
+kestrel runs testCommand with these env vars already set:
+  KESTREL_APPIUM_SERVER_URL   e.g. http://localhost:4723
+  KESTREL_APK_PATH            absolute path to the APK under test
+  KESTREL_SCREENSHOTS_DIR     where to drop a screenshot on failure
+  KESTREL_PLATFORM_NAME       default "Android"
+  KESTREL_DEVICE_NAME         default "Android Emulator"
+  KESTREL_AUTOMATION_NAME     default "UiAutomator2"
+
+A test repo just needs pytest + Appium-Python-Client installed and to run
+pytest with `-p kestrel_appium_plugin` (kestrel's example configs already do
+this) — then write tests like:
+
+    def test_login_with_valid_credentials(driver):
+        driver.find_element(...).click()
+        ...
+"""
+import os
+import re
+
+import pytest
+from appium import webdriver
+from appium.options.android import UiAutomator2Options
+
+
+def _capabilities() -> UiAutomator2Options:
+    options = UiAutomator2Options()
+    options.platform_name = os.environ.get("KESTREL_PLATFORM_NAME", "Android")
+    options.automation_name = os.environ.get("KESTREL_AUTOMATION_NAME", "UiAutomator2")
+    options.device_name = os.environ.get("KESTREL_DEVICE_NAME", "Android Emulator")
+    options.app = os.environ["KESTREL_APK_PATH"]
+    return options
+
+
+@pytest.fixture
+def driver():
+    server_url = os.environ["KESTREL_APPIUM_SERVER_URL"]
+    session = webdriver.Remote(server_url, options=_capabilities())
+    yield session
+    session.quit()
+
+
+def _slug(value: str) -> str:
+    return re.sub(r"[^a-zA-Z0-9]+", "-", value).strip("-").lower()
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    report = outcome.get_result()
+
+    if report.when != "call":
+        return
+
+    driver = item.funcargs.get("driver")
+    screenshots_dir = os.environ.get("KESTREL_SCREENSHOTS_DIR")
+    if driver is None or not screenshots_dir:
+        return
+
+    os.makedirs(screenshots_dir, exist_ok=True)
+    path = os.path.join(screenshots_dir, f"{_slug(item.nodeid)}.png")
+    try:
+        driver.get_screenshot_as_file(path)
+    except Exception:
+        pass

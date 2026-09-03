@@ -1,0 +1,55 @@
+# Example workflow: raw Appium test files (no conftest.py of their own)
+# against a hardware-accelerated Android emulator, entirely on GitHub-hosted
+# `ubuntu-latest` runners. Copy this into .github/workflows/ in the consuming
+# repo and adjust paths.
+#
+# Kestrel doesn't provision the emulator itself — that's
+# reactivecircus/android-emulator-runner's job. Once a device is reachable,
+# kestrel owns everything else: installs the APK, starts its own Appium
+# server, injects the driver fixture the test files use, runs them, and
+# turns the JUnit output + screenshots into a report.
+name: Android E2E
+
+on:
+  pull_request:
+
+jobs:
+  appium-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Kestrel
+        run: npm install
+        working-directory: kestrel
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install test-file deps (just pytest + Appium-Python-Client)
+        run: pip install -r kestrel/python-harness/requirements.txt
+
+      - name: Download APK built earlier in the pipeline
+        uses: actions/download-artifact@v4
+        with:
+          name: app-debug-apk
+          path: .
+
+      - name: Run Appium suite on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          arch: x86_64
+          script: npx tsx kestrel/src/cli.ts run --config kestrel.config.json
+
+      - name: Upload Kestrel report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kestrel-report
+          path: kestrel-report/

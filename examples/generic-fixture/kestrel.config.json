@@ -1,0 +1,7 @@
+{
+  "platform": "integration",
+  "testCommand": "node run-tests.mjs",
+  "resultsDir": "results",
+  "screenshotsDir": "results/screenshots",
+  "reportDir": "report"
+}
