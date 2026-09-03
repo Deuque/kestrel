@@ -1,6 +1,7 @@
 node_modules/
-report/
-kestrel-report/
+/report/
+/kestrel-report/
 *.log
 .DS_Store
 examples/generic-fixture/results/
+examples/generic-fixture/report/
