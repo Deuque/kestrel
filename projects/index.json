@@ -5,12 +5,5 @@
     "lastPublishedAt": "2026-09-03T18:44:14.421Z",
     "lastPassed": 0,
     "lastFailed": 1
-  },
-  {
-    "id": "kestrel-netlog-smoke-test",
-    "project": "kestrel-netlog-smoke-test",
-    "lastPublishedAt": "2026-09-03T18:58:26.696Z",
-    "lastPassed": 1,
-    "lastFailed": 1
   }
 ]
