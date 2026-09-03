@@ -7,7 +7,9 @@ export function renderSummaryMarkdown(summary: RunSummary, dashboardUrl?: string
   lines.push(
     `**${summary.passed} passed**, **${summary.failed} failed**, ${summary.skipped} skipped, ${summary.errored} errored`
   );
-  if (dashboardUrl) lines.push(`Dashboard: ${dashboardUrl}`);
+  if (dashboardUrl) {
+    lines.push(`Dashboard: <a href="${dashboardUrl}" target="_blank" rel="noopener noreferrer">${dashboardUrl}</a>`);
+  }
   lines.push("");
 
   const failures = summary.suites.flatMap((suite) =>

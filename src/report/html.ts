@@ -51,7 +51,7 @@ export function renderHtmlReport(summary: RunSummary, dashboardUrl?: string | nu
 <body>
   <h1>Kestrel test report</h1>
   <div class="totals">${summary.passed} passed &middot; ${summary.failed} failed &middot; ${summary.skipped} skipped &middot; ${summary.errored} errored</div>
-  ${dashboardUrl ? `<div class="dashboard-link"><a href="${dashboardUrl}">View on dashboard →</a></div>` : ""}
+  ${dashboardUrl ? `<div class="dashboard-link"><a href="${dashboardUrl}" target="_blank" rel="noopener noreferrer">View on dashboard →</a></div>` : ""}
   ${failing.length > 0 ? `<section><h2>Failures</h2><ul class="test-list">${failing.map(renderTestCase).join("")}</ul></section>` : ""}
   <section><h2>All tests</h2><ul class="test-list">${rest.map(renderTestCase).join("")}</ul></section>
 </body>
