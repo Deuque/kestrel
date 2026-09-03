@@ -14,8 +14,11 @@ function stripLogcatPrefix(text: string): string {
     .join("\n");
 }
 
-const REQUEST_BLOCK = /\*\*\* Request \*\*\*([\s\S]*?)(?=\*\*\* (?:Response|DioException) \*\*\*|$)/g;
-const RESPONSE_BLOCK = /\*\*\* Response \*\*\*([\s\S]*?)(?=\*\*\* (?:Request|DioException) \*\*\*|$)/g;
+const BLOCK_BOUNDARY = "(?=\\*\\*\\* (?:Request|Response|DioException) \\*\\*\\*|$)";
+const REQUEST_BLOCK = new RegExp(`\\*\\*\\* Request \\*\\*\\*([\\s\\S]*?)${BLOCK_BOUNDARY}`, "g");
+const RESPONSE_BLOCK = new RegExp(`\\*\\*\\* Response \\*\\*\\*([\\s\\S]*?)${BLOCK_BOUNDARY}`, "g");
+// Dio's own default onError formatting — colon is part of the literal marker, not punctuation.
+const DIO_EXCEPTION_BLOCK = new RegExp(`\\*\\*\\* DioException \\*\\*\\*:([\\s\\S]*?)${BLOCK_BOUNDARY}`, "g");
 
 /** Finds "field: value" anywhere on a line, not anchored to line-start. */
 function extractField(block: string, field: string): string | undefined {
@@ -27,14 +30,44 @@ function extractField(block: string, field: string): string | undefined {
   return undefined;
 }
 
-/** Dio's default LogInterceptor block format — the common case for a Flutter app. */
+function extractResponseSnippet(block: string): string | undefined {
+  const bodyMatch = block.match(/Response Text:\s*\n?([\s\S]*)/i);
+  return bodyMatch?.[1]?.trim().slice(0, 300) || undefined;
+}
+
+function mergeEntry(entries: Map<string, NetworkEntry>, url: string, patch: Partial<NetworkEntry>): void {
+  const existing = entries.get(url) ?? { url };
+  entries.set(url, {
+    ...existing,
+    method: patch.method ?? existing.method,
+    statusCode: patch.statusCode ?? existing.statusCode,
+    snippet: patch.snippet ?? existing.snippet,
+  });
+}
+
+/**
+ * Dio's default LogInterceptor block format — the common case for a
+ * Flutter app. Three block types matter here, and a failed call only
+ * ever produces two of them:
+ *   - "*** Request ***" — always logged, has method + uri.
+ *   - "*** Response ***" — only for 2xx (Dio's default validateStatus
+ *     rejects anything else and routes it to onError instead).
+ *   - "*** DioException ***:" — every non-2xx response, timeout, or
+ *     connection failure. Its statusCode isn't printed as a labeled
+ *     field the way a plain Response's is (that's gated by the
+ *     interceptor's own responseHeader flag, off by default in some
+ *     app configs) — but Dio's own default exception message always
+ *     contains the literal text "status code of NNN", which is a
+ *     framework string, not an app-specific one, so it's extracted from
+ *     there instead of the "statusCode:" field.
+ */
 function parseDioStyle(text: string): NetworkEntry[] {
   const entries = new Map<string, NetworkEntry>();
 
   for (const m of text.matchAll(REQUEST_BLOCK)) {
     const url = extractField(m[1], "uri");
     if (!url) continue;
-    entries.set(url, { url, method: extractField(m[1], "method") });
+    mergeEntry(entries, url, { method: extractField(m[1], "method") });
   }
 
   for (const m of text.matchAll(RESPONSE_BLOCK)) {
@@ -43,13 +76,20 @@ function parseDioStyle(text: string): NetworkEntry[] {
     if (!url) continue;
     const statusRaw = extractField(block, "statusCode");
     const statusCode = statusRaw !== undefined ? Number(statusRaw) : undefined;
-    const bodyMatch = block.match(/Response Text:\s*\n?([\s\S]*)/i);
-    const snippet = bodyMatch?.[1]?.trim().slice(0, 300) || undefined;
-    const existing = entries.get(url) ?? { url };
-    entries.set(url, {
-      ...existing,
-      statusCode: statusCode !== undefined && Number.isFinite(statusCode) ? statusCode : existing.statusCode,
-      snippet,
+    mergeEntry(entries, url, {
+      statusCode: statusCode !== undefined && Number.isFinite(statusCode) ? statusCode : undefined,
+      snippet: extractResponseSnippet(block),
+    });
+  }
+
+  for (const m of text.matchAll(DIO_EXCEPTION_BLOCK)) {
+    const block = m[1];
+    const url = extractField(block, "uri");
+    if (!url) continue;
+    const statusMatch = block.match(/status code of (\d{3})/i);
+    mergeEntry(entries, url, {
+      statusCode: statusMatch ? Number(statusMatch[1]) : undefined,
+      snippet: extractResponseSnippet(block),
     });
   }
 
