@@ -1,1 +1,12 @@
-[]
+[
+  {
+    "id": "2026-09-03T11-58-45-889Z-ddec87",
+    "project": "klasha-mobile-app",
+    "platform": "appium",
+    "startedAt": "2026-09-03T11:57:36.294Z",
+    "passed": 0,
+    "failed": 1,
+    "skipped": 0,
+    "errored": 0
+  }
+]
