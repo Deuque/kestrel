@@ -1,10 +1,34 @@
 import { toDataUri } from "../dataUri.js";
-import type { RunSummary, TestCase } from "../types.js";
+import type { NetworkEntry, RunSummary, TestCase } from "../types.js";
 
 const ESCAPE_MAP: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
 
 function escapeHtml(value: string): string {
   return value.replace(/[&<>"']/g, (ch) => ESCAPE_MAP[ch]!);
+}
+
+function renderNetworkLogs(entries: NetworkEntry[] | undefined): string {
+  if (!entries || entries.length === 0) return "";
+  const failedCount = entries.filter((e) => e.statusCode !== undefined && e.statusCode >= 400).length;
+  const label = `Network (${entries.length}${failedCount > 0 ? `, ${failedCount} failed` : ""})`;
+
+  const rows = entries
+    .map((e) => {
+      const bad = e.statusCode !== undefined && e.statusCode >= 400;
+      const statusClass = e.statusCode === undefined ? "" : bad ? "bad" : "ok";
+      return `
+        <div class="network-entry">
+          <div class="network-line">
+            <span class="network-method">${escapeHtml(e.method ?? "?")}</span>
+            <span class="network-url">${escapeHtml(e.url)}</span>
+            ${e.statusCode !== undefined ? `<span class="network-status ${statusClass}">${e.statusCode}</span>` : ""}
+          </div>
+          ${e.snippet ? `<pre class="network-snippet">${escapeHtml(e.snippet)}</pre>` : ""}
+        </div>`;
+    })
+    .join("");
+
+  return `<details class="network-details"><summary>${label}</summary>${rows}</details>`;
 }
 
 function renderTestCase(test: TestCase): string {
@@ -17,6 +41,7 @@ function renderTestCase(test: TestCase): string {
       </div>
       ${test.message ? `<pre class="test-message">${escapeHtml(test.message)}</pre>` : ""}
       ${screenshot ? `<img class="screenshot" src="${screenshot}" alt="${escapeHtml(test.name)} screenshot">` : ""}
+      ${renderNetworkLogs(test.networkLogs)}
     </li>`;
 }
 
@@ -46,6 +71,17 @@ export function renderHtmlReport(summary: RunSummary, dashboardUrl?: string | nu
   .test-message { white-space: pre-wrap; font-size: 13px; background: rgba(0,0,0,0.05); padding: 8px; border-radius: 4px; margin: 8px 0 0; }
   img.screenshot { max-width: 480px; display: block; margin-top: 8px; border-radius: 4px; border: 1px solid #d7dee3; }
   section { margin-bottom: 32px; }
+  details.network-details { margin-top: 10px; font-size: 13px; }
+  details.network-details summary { cursor: pointer; font-weight: 600; color: #5b6670; }
+  details.network-details summary:hover { color: #161a1f; }
+  .network-entry { border-top: 1px solid rgba(0,0,0,0.08); padding: 8px 0; }
+  .network-line { display: flex; gap: 8px; align-items: baseline; font-family: ui-monospace, "SF Mono", monospace; font-size: 12.5px; }
+  .network-method { font-weight: 700; color: #5b6670; }
+  .network-url { word-break: break-all; }
+  .network-status { margin-left: auto; font-weight: 700; padding: 1px 6px; border-radius: 4px; }
+  .network-status.ok { background: #e3f3e9; color: #2e7d4f; }
+  .network-status.bad { background: #fbe7e4; color: #b23a2e; }
+  .network-snippet { white-space: pre-wrap; font-size: 12px; background: rgba(0,0,0,0.05); padding: 6px 8px; border-radius: 4px; margin: 6px 0 0; }
 </style>
 </head>
 <body>

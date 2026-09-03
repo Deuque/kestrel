@@ -16,6 +16,13 @@ conftest.py, no AppiumService setup of its own. It provides:
     kestrel's report doesn't surface it, but it's in the same results
     artifact, and it's the fastest way to confirm what a locator should
     have matched instead of guessing from a screenshot alone.
+  - every test also gets its own device log (`adb logcat`, cleared right
+    before the session starts so it's scoped to just that test) saved as
+    a .log file next to the screenshot. This is how you find out whether
+    a test failed because of the app (a network call that actually
+    failed, a stack trace) rather than the test — a "waiting for the next
+    screen" timeout looks identical from the UI alone whether the
+    request never returned or came back a 401.
 
 kestrel runs testCommand with these env vars already set:
   KESTREL_APPIUM_SERVER_URL   e.g. http://localhost:4723
@@ -48,6 +55,7 @@ a bare Selenium exception dump.
 """
 import os
 import re
+import subprocess
 from contextlib import contextmanager
 
 import pytest
@@ -64,9 +72,17 @@ def _capabilities() -> UiAutomator2Options:
     return options
 
 
+def _clear_device_log() -> None:
+    try:
+        subprocess.run(["adb", "logcat", "-c"], check=False, timeout=10)
+    except Exception:
+        pass
+
+
 @pytest.fixture
 def driver():
     server_url = os.environ["KESTREL_APPIUM_SERVER_URL"]
+    _clear_device_log()
     session = webdriver.Remote(server_url, options=_capabilities())
     yield session
     session.quit()
@@ -115,3 +131,12 @@ def pytest_runtest_makereport(item, call):
                 f.write(driver.page_source)
         except Exception:
             pass
+
+    try:
+        result = subprocess.run(
+            ["adb", "logcat", "-d"], capture_output=True, text=True, timeout=15, check=False
+        )
+        with open(f"{base}.log", "w") as f:
+            f.write(result.stdout)
+    except Exception:
+        pass

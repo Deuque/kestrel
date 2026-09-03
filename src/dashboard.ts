@@ -4,7 +4,7 @@ import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { toDataUri } from "./dataUri.js";
-import type { RunSummary } from "./types.js";
+import type { NetworkEntry, RunSummary } from "./types.js";
 
 export interface DashboardConfig {
   /** "owner/repo" the dashboard's gh-pages site lives in, e.g. "Deuque/kestrel". */
@@ -41,6 +41,7 @@ interface DashboardRunRecord {
       timeSeconds?: number;
       message?: string;
       screenshot: string | null;
+      networkLogs?: NetworkEntry[];
     }[];
   }[];
 }
@@ -94,6 +95,7 @@ export async function publishToDashboard(
         timeSeconds: test.timeSeconds,
         message: test.message,
         screenshot: test.screenshotPath ? toDataUri(test.screenshotPath) : null,
+        networkLogs: test.networkLogs,
       })),
     })),
   };

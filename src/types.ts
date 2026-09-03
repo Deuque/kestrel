@@ -1,5 +1,12 @@
 export type TestStatus = "passed" | "failed" | "skipped" | "error";
 
+export interface NetworkEntry {
+  method?: string;
+  url: string;
+  statusCode?: number;
+  snippet?: string;
+}
+
 export interface TestCase {
   name: string;
   classname?: string;
@@ -8,6 +15,8 @@ export interface TestCase {
   message?: string;
   details?: string;
   screenshotPath?: string;
+  logPath?: string;
+  networkLogs?: NetworkEntry[];
 }
 
 export interface TestSuiteResult {

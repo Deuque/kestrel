@@ -1,5 +1,6 @@
-import { existsSync, readdirSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
+import { parseNetworkLog } from "./networkLog.js";
 import type { TestCase } from "./types.js";
 
 const IMAGE_EXTENSIONS = [".png", ".jpg", ".jpeg"];
@@ -19,6 +20,10 @@ export function listScreenshots(dir: string): string[] {
  * makes matches reliable. Skipped tests never ran, so there's nothing to
  * attach; passed and failed tests both get a screenshot when one matches —
  * a passing test's screenshot is visible proof it actually ran.
+ *
+ * A matched screenshot also pulls in its sibling device log, if kestrel's
+ * pytest plugin wrote one alongside it (same basename, .log extension) —
+ * parsed into structured network entries where recognizable.
  */
 export function attachScreenshots(tests: TestCase[], screenshotPaths: string[]): void {
   const slugged = screenshotPaths.map((path) => ({ path, slug: slug(path) }));
@@ -27,7 +32,18 @@ export function attachScreenshots(tests: TestCase[], screenshotPaths: string[]):
     if (test.status === "skipped") continue;
     const key = slug(test.name);
     const match = slugged.find(({ slug: s }) => s.includes(key) || key.includes(s));
-    if (match) test.screenshotPath = match.path;
+    if (!match) continue;
+
+    test.screenshotPath = match.path;
+
+    const logPath = match.path.replace(/\.(png|jpe?g)$/i, ".log");
+    if (!existsSync(logPath)) continue;
+    test.logPath = logPath;
+    try {
+      test.networkLogs = parseNetworkLog(readFileSync(logPath, "utf8"));
+    } catch {
+      // best-effort; leave networkLogs unset
+    }
   }
 }
 
