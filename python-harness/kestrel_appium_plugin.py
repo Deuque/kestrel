@@ -32,9 +32,23 @@ this) — then write tests like:
     def test_login_with_valid_credentials(driver):
         driver.find_element(...).click()
         ...
+
+Also provides `step()`, a context manager for narrating what a test is
+doing so a failure says what broke instead of just how: wrap each
+meaningful action in `with step("fill in email"): ...` and a failure
+inside it becomes "Step failed: fill in email" followed by a short,
+stacktrace-free error — that's what ends up in kestrel's report instead of
+a bare Selenium exception dump.
+
+    from kestrel_appium_plugin import step
+
+    def test_login_with_valid_credentials(driver):
+        with step("open the login form"):
+            driver.find_element(...).click()
 """
 import os
 import re
+from contextlib import contextmanager
 
 import pytest
 from appium import webdriver
@@ -60,6 +74,19 @@ def driver():
 
 def _slug(value: str) -> str:
     return re.sub(r"[^a-zA-Z0-9]+", "-", value).strip("-").lower()
+
+
+@contextmanager
+def step(description: str):
+    """Narrates one action; a failure inside says which step broke, with a
+    short error instead of a raw exception dump (Selenium's __str__ embeds
+    its own multi-line "Stacktrace: ..." block, which .msg — the message
+    alone — doesn't have)."""
+    try:
+        yield
+    except Exception as e:
+        short = getattr(e, "msg", None) or str(e).split("\n")[0]
+        raise AssertionError(f"Step failed: {description}\n{type(e).__name__}: {short}") from e
 
 
 @pytest.hookimpl(hookwrapper=True)
