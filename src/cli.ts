@@ -93,8 +93,12 @@ async function runAppiumSuite(config: KestrelConfig): Promise<number> {
       "appium.ownServer is false — assuming the suite manages its own Appium server. " +
         "Kestrel installed the APK and will just run testCommand as-is (no server, no injected driver fixture)."
     );
+    const env: NodeJS.ProcessEnv = { ...process.env };
+    if (config.screenshotsDir) {
+      env.KESTREL_SCREENSHOTS_DIR = resolve(config.screenshotsDir);
+    }
     console.log(`Running: ${config.testCommand}`);
-    return runTestCommand(config.testCommand);
+    return runTestCommand(config.testCommand, env);
   }
 
   const port = appium.port ?? DEFAULT_APPIUM_PORT;

@@ -65,9 +65,50 @@ If a suite already has its own `AppiumService` — custom plugins,
 `--relaxed-security` flags, per-`pytest-xdist`-worker ports, whatever a real
 suite tends to accumulate — set `"appium": { "apk": "...", "ownServer": false }`.
 Kestrel then just installs the APK and runs `testCommand` as-is: no server,
-no injected plugin, no env vars. The suite manages Appium exactly as it did
-before adopting kestrel; kestrel's only job is the APK install and the
-report at the end.
+no injected plugin. The suite manages Appium exactly as it did before
+adopting kestrel; kestrel's only job is the APK install and the report at
+the end. The one env var kestrel still sets is `KESTREL_SCREENSHOTS_DIR`
+(only if `screenshotsDir` is configured) — see below.
+
+#### Screenshots without kestrel's own server
+
+Since kestrel isn't the one creating the Appium session here, it can't
+auto-capture screenshots the way it does under its own server (see "How
+results become a report" above) — the suite has to take them itself. Add a
+hook to the suite's own `conftest.py` that saves a screenshot on failure into
+`KESTREL_SCREENSHOTS_DIR`, named after the test (kestrel's fuzzy filename
+match — see "Screenshot matching" — will find it from there):
+
+```python
+import os
+import re
+import pytest
+
+def _slug(value: str) -> str:
+    return re.sub(r"[^a-zA-Z0-9]+", "-", value).strip("-").lower()
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    report = outcome.get_result()
+    if report.when != "call" or not report.failed:
+        return
+
+    screenshots_dir = os.environ.get("KESTREL_SCREENSHOTS_DIR")
+    driver = item.funcargs.get("driver")  # swap for your fixture's actual name
+    if not screenshots_dir or driver is None:
+        return
+
+    os.makedirs(screenshots_dir, exist_ok=True)
+    try:
+        driver.get_screenshot_as_file(os.path.join(screenshots_dir, f"{_slug(item.nodeid)}.png"))
+    except Exception:
+        pass
+```
+
+`conftest.py` loads automatically, so no `-p` flag is needed. Swap
+`item.funcargs.get("driver")` for whichever fixture actually holds the
+suite's own Appium session.
 
 ## How results become a report
 
