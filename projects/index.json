@@ -5,5 +5,12 @@
     "lastPublishedAt": "2026-09-03T20:27:11.643Z",
     "lastPassed": 1,
     "lastFailed": 0
+  },
+  {
+    "id": "my-nomba-app",
+    "project": "my-nomba-app",
+    "lastPublishedAt": "2026-09-09T10:06:11.172Z",
+    "lastPassed": 6,
+    "lastFailed": 0
   }
 ]

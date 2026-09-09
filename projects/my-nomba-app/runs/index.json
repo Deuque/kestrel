@@ -1,0 +1,12 @@
+[
+  {
+    "id": "2026-09-09T10-06-11-173Z-af5d68",
+    "project": "my-nomba-app",
+    "platform": "appium",
+    "startedAt": "2026-09-09T10:01:03.225Z",
+    "passed": 6,
+    "failed": 0,
+    "skipped": 0,
+    "errored": 0
+  }
+]
