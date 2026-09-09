@@ -12,5 +12,12 @@
     "lastPublishedAt": "2026-09-09T13:23:55.502Z",
     "lastPassed": 1,
     "lastFailed": 2
+  },
+  {
+    "id": "my-nomba-app-selfhosted",
+    "project": "my-nomba-app-selfhosted",
+    "lastPublishedAt": "2026-09-09T15:04:39.659Z",
+    "lastPassed": 1,
+    "lastFailed": 4
   }
 ]
