@@ -16,8 +16,8 @@
   {
     "id": "my-nomba-app-selfhosted",
     "project": "my-nomba-app-selfhosted",
-    "lastPublishedAt": "2026-09-09T15:04:39.659Z",
-    "lastPassed": 1,
-    "lastFailed": 4
+    "lastPublishedAt": "2026-09-09T15:20:05.429Z",
+    "lastPassed": 0,
+    "lastFailed": 2
   }
 ]
