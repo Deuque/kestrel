@@ -24,5 +24,16 @@
     "lastPublishedAt": "2026-09-09T15:20:05.429Z",
     "lastPassed": 0,
     "lastFailed": 2
+  },
+  {
+    "id": "my-nomba-app2",
+    "project": "my-nomba-app2",
+    "lastPublishedAt": "2026-09-11T23:56:29.619Z",
+    "lastPlatform": "appium",
+    "lastPassed": 0,
+    "lastFailed": 10,
+    "trend": [
+      0
+    ]
   }
 ]
