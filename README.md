@@ -156,6 +156,32 @@ repo) in the environment kestrel runs in — in CI, a repo secret. Without the
 token set, kestrel logs a warning and skips publishing; it never fails the
 actual test run over a missing/broken dashboard push.
 
+### Grouping split runs into one job
+
+If you split one suite across several kestrel instances (parallel shards,
+each running a subset of tests) and want them to show up as one thing on the
+dashboard instead of several unrelated runs, give them a shared `jobId`:
+
+```json
+"dashboard": {
+  "repo": "Deuque/kestrel",
+  "project": "your-project-name",
+  "jobId": "gh-run-48213",
+  "shard": "shard-2 · wallet & transfers"
+}
+```
+
+Both fall back to environment variables — `KESTREL_JOB_ID` and
+`KESTREL_SHARD` — so a CI matrix can set them once (e.g. `jobId` from
+`$GITHUB_RUN_ID`) instead of templating them into every shard's config.
+`shard` is just a label shown when the job is expanded; if you set `jobId`
+without it, kestrel falls back to a short id. Each shard still publishes its
+own run independently through the normal conflict-safe path above — kestrel
+never writes a shared aggregate file, so concurrent shards can't collide.
+The dashboard groups runs sharing a `jobId` into one expandable row with
+totals summed across shards. Omit `jobId` entirely and a run behaves exactly
+as before — nothing here is required.
+
 Each project is fully namespaced under `projects/<slug>/` (slugified from
 `project`) — its own `runs/<id>.json` files (screenshots embedded as base64)
 and its own `runs/index.json` manifest, plus an entry in the top-level

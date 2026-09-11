@@ -20,12 +20,31 @@ export interface DashboardConfig {
    * wouldn't risk unrelated projects colliding in one bucket.
    */
   project: string;
+  /**
+   * Groups this run with others published under the same id — e.g. several
+   * kestrel instances each running a shard of one suite in parallel, from
+   * one CI pipeline run. Each shard still publishes its own run
+   * independently (same conflict-safe path as any other run); the
+   * dashboard collapses runs sharing a jobId into one expandable row with
+   * aggregated totals. Falls back to $KESTREL_JOB_ID so a CI matrix can set
+   * it once via env instead of templating it into every shard's config.
+   * Omit entirely to keep a run standalone, same as before this existed.
+   */
+  jobId?: string;
+  /**
+   * Label for this run within its job (e.g. "shard 2", a device name) —
+   * shown when a job row is expanded. Falls back to $KESTREL_SHARD, then to
+   * a short id. Meaningless without jobId.
+   */
+  shard?: string;
 }
 
 interface DashboardRunRecord {
   id: string;
   project: string;
   platform: string;
+  jobId: string | null;
+  shard: string | null;
   startedAt: string;
   finishedAt: string;
   passed: number;
@@ -76,10 +95,14 @@ export async function publishToDashboard(
   const workDir = mkdtempSync(join(tmpdir(), "kestrel-dashboard-"));
 
   const id = `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomBytes(3).toString("hex")}`;
+  const jobId = config.jobId ?? process.env.KESTREL_JOB_ID ?? null;
+  const shard = config.shard ?? process.env.KESTREL_SHARD ?? (jobId ? id.slice(-6) : null);
   const record: DashboardRunRecord = {
     id,
     project: config.project,
     platform,
+    jobId,
+    shard,
     startedAt: summary.startedAt,
     finishedAt: summary.finishedAt,
     passed: summary.passed,
@@ -157,7 +180,10 @@ function writeRunFiles(workDir: string, slug: string, record: DashboardRunRecord
     id: record.id,
     project: record.project,
     platform: record.platform,
+    jobId: record.jobId,
+    shard: record.shard,
     startedAt: record.startedAt,
+    finishedAt: record.finishedAt,
     passed: record.passed,
     failed: record.failed,
     skipped: record.skipped,
@@ -169,12 +195,19 @@ function writeRunFiles(workDir: string, slug: string, record: DashboardRunRecord
   const projectIndexPath = join(workDir, "projects", "index.json");
   const projectIndex = readJsonArray(projectIndexPath) as Array<Record<string, unknown>>;
   const existing = projectIndex.findIndex((p) => p.id === slug);
+  const total = record.passed + record.failed + record.errored + record.skipped;
+  const passRate = total > 0 ? Math.round((record.passed / total) * 100) : 100;
+  const previousTrend = existing >= 0 && Array.isArray(projectIndex[existing]!.trend) ? (projectIndex[existing]!.trend as number[]) : [];
   const projectEntry = {
     id: slug,
     project: record.project,
     lastPublishedAt: record.finishedAt,
+    lastPlatform: record.platform,
     lastPassed: record.passed,
     lastFailed: record.failed,
+    // Rolling pass-rate history (last 12 runs) — powers the trend sparkline
+    // on the project card without the dashboard fetching every run.
+    trend: [...previousTrend, passRate].slice(-12),
   };
   if (existing >= 0) projectIndex[existing] = projectEntry;
   else projectIndex.push(projectEntry);
