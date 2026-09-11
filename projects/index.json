@@ -9,9 +9,13 @@
   {
     "id": "my-nomba-app",
     "project": "my-nomba-app",
-    "lastPublishedAt": "2026-09-11T18:08:08.757Z",
-    "lastPassed": 10,
-    "lastFailed": 0
+    "lastPublishedAt": "2026-09-11T23:19:48.725Z",
+    "lastPlatform": "appium",
+    "lastPassed": 0,
+    "lastFailed": 10,
+    "trend": [
+      0
+    ]
   },
   {
     "id": "my-nomba-app-selfhosted",
