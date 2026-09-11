@@ -142,6 +142,11 @@ Project list first; pick one for its session history, click a session for
 failures and screenshots. Directly linkable: `#<project-slug>` jumps to a
 project, `#<project-slug>/<run-id>` to one specific run.
 
+The project list, run detail (stat tiles, filterable test list, screenshot
+lightbox), and network/error layout are all automatic — nothing to opt into,
+and no change needed to an existing `kestrel.config.json`. The only opt-in
+piece is grouping split runs into a job, below.
+
 To publish a run there, add to `kestrel.config.json`:
 
 ```json
