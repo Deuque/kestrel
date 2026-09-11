@@ -1,5 +1,15 @@
 [
   {
+    "id": "2026-09-11T18-08-08-757Z-339b35",
+    "project": "my-nomba-app",
+    "platform": "appium",
+    "startedAt": "2026-09-11T17:56:54.029Z",
+    "passed": 10,
+    "failed": 0,
+    "skipped": 0,
+    "errored": 0
+  },
+  {
     "id": "2026-09-11T17-34-54-773Z-2629d2",
     "project": "my-nomba-app",
     "platform": "appium",
