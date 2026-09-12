@@ -22,6 +22,8 @@
     --bad-soft: #fbe6e2;
     --skip: #6b7684;
     --skip-soft: #e7ebee;
+    --pending: #2f6fb2;
+    --pending-soft: #e4eefa;
     --shadow: 0 1px 2px rgba(23,32,42,0.06), 0 8px 24px -12px rgba(23,32,42,0.16);
     --radius: 10px;
   }
@@ -42,6 +44,8 @@
       --bad-soft: #341714;
       --skip: #9aa7b2;
       --skip-soft: #1c232a;
+      --pending: #6ea8e0;
+      --pending-soft: #16232f;
       --shadow: 0 1px 2px rgba(0,0,0,0.3), 0 8px 24px -12px rgba(0,0,0,0.5);
     }
   }
@@ -180,6 +184,24 @@
   .pill.ok { background: var(--ok-soft); color: var(--ok); }
   .pill.bad { background: var(--bad-soft); color: var(--bad); }
   .pill.skip { background: var(--skip-soft); color: var(--skip); }
+  .pill.pending { background: var(--pending-soft); color: var(--pending); display: inline-flex; align-items: center; gap: 5px; }
+  .pill.stale { background: var(--skip-soft); color: var(--text-muted); display: inline-flex; align-items: center; gap: 5px; }
+
+  .pulse-dot {
+    width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none;
+    animation: kestrel-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes kestrel-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+  @media (prefers-reduced-motion: reduce) { .pulse-dot { animation: none; } }
+
+  .running-panel {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 32px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px;
+  }
+  .running-panel .pulse-dot { width: 10px; height: 10px; color: var(--pending); }
+  .running-panel.stale .pulse-dot { color: var(--text-faint); animation: none; }
+  .running-panel h3 { font-size: 15px; font-weight: 600; margin-top: 4px; }
+  .running-panel p { color: var(--text-muted); font-size: 13px; max-width: 420px; margin: 0; }
 
   /* ---------- detail pane ---------- */
   .detail-head { margin-bottom: 16px; }
@@ -371,6 +393,7 @@ function sparkline(values) {
    Router
    ============================================================ */
 async function render() {
+  clearTimeout(pendingPollTimer);
   const { slug, runId } = parseHash();
   if (!slug) {
     crumbsEl.innerHTML = '';
@@ -483,12 +506,33 @@ async function renderProject(slug, requestedRunId) {
   loadRun(slug, initialId, runs);
 }
 
+const STALE_MS = 60 * 60 * 1000; // a pending run older than this may have been cancelled — kestrel has no way to know for sure
+
+function elapsedSince(iso) {
+  const s = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+  if (s < 60) return `${s}s`;
+  const m = Math.floor(s / 60);
+  return m < 60 ? `${m}m` : `${Math.floor(m / 60)}h ${m % 60}m`;
+}
+function isStale(r) {
+  return r.status === 'pending' && Date.now() - new Date(r.startedAt).getTime() > STALE_MS;
+}
+
 function countsPill(r) {
   return `<span class="pill ok tabular">${r.passed} pass</span><span class="pill bad tabular">${r.failed + r.errored} fail</span>${r.skipped ? `<span class="pill skip tabular">${r.skipped} skip</span>` : ''}`;
 }
 
+// Pending/stale rows show a running indicator instead of pass/fail counts —
+// there's nothing to count yet.
+function statusBadge(r) {
+  if (r.status !== 'pending') return countsPill(r);
+  if (isStale(r)) return `<span class="pill stale" title="No update in over an hour — kestrel can't tell if this was cancelled">Not reporting</span>`;
+  return `<span class="pill pending"><span class="pulse-dot"></span>Running ${elapsedSince(r.startedAt)}</span>`;
+}
+
 function jobHtml(job, activeId) {
   const totals = job.shards.reduce((a, r) => ({ passed: a.passed + r.passed, failed: a.failed + r.failed, errored: a.errored + r.errored, skipped: a.skipped + r.skipped }), { passed: 0, failed: 0, errored: 0, skipped: 0 });
+  const runningCount = job.shards.filter((r) => r.status === 'pending' && !isStale(r)).length;
   const isOpen = job.shards.some((r) => r.id === activeId);
   return `
     <div class="job${isOpen ? ' open' : ''}">
@@ -499,13 +543,13 @@ function jobHtml(job, activeId) {
           <svg class="job-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </div>
         <div class="job-shards-label" title="${esc(job.jobId)}">${esc(job.jobId)} · ${job.shards.length} shard${job.shards.length === 1 ? '' : 's'}</div>
-        <div class="run-counts">${countsPill(totals)}</div>
+        <div class="run-counts">${countsPill(totals)}${runningCount ? `<span class="pill pending"><span class="pulse-dot"></span>${runningCount} running</span>` : ''}</div>
       </div>
       <div class="job-shards">
         ${job.shards.map((r) => `
           <div class="shard-row${r.id === activeId ? ' active' : ''}" data-run-id="${esc(r.id)}">
             <span class="shard-name" title="${esc(r.shard)}">${esc(r.shard)}</span>
-            <span class="shard-counts">${countsPill(r)}</span>
+            <span class="shard-counts">${statusBadge(r)}</span>
           </div>`).join('')}
       </div>
     </div>`;
@@ -517,7 +561,7 @@ function runRowHtml(r, activeId) {
       <div class="run-row-top">
         <span class="run-time">${fmtTime(r.startedAt)}</span>
       </div>
-      <div class="run-counts">${countsPill(r)}</div>
+      <div class="run-counts">${statusBadge(r)}</div>
     </div>`;
 }
 
@@ -525,8 +569,33 @@ function runRowHtml(r, activeId) {
    Run detail
    ============================================================ */
 let currentFilter = 'all';
+let pendingPollTimer = null;
+
+// Static site, no push updates — while a run is still pending, poll its
+// lightweight index entry every 20s. A still-pending result just refreshes
+// the "started Xm ago" text; a finished one triggers a full re-render so
+// the rail's counts catch up too.
+function schedulePendingPoll(slug, id) {
+  clearTimeout(pendingPollTimer);
+  pendingPollTimer = setTimeout(async () => {
+    let runs;
+    try {
+      runs = await fetchJson(`projects/${encodeURIComponent(slug)}/runs/index.json`);
+    } catch (e) {
+      schedulePendingPoll(slug, id);
+      return;
+    }
+    const meta = runs.find((r) => r.id === id);
+    if (meta && meta.status === 'pending') {
+      loadRun(slug, id, runs);
+    } else {
+      renderProject(slug, id);
+    }
+  }, 20000);
+}
 
 async function loadRun(slug, id, runs) {
+  clearTimeout(pendingPollTimer);
   const meta = runs.find((r) => r.id === id);
   const detail = document.getElementById('detail');
   detail.innerHTML = '<div class="empty">Loading…</div>';
@@ -543,21 +612,38 @@ async function loadRun(slug, id, runs) {
   currentFilter = 'all';
 
   const jobSiblings = meta.jobId ? runs.filter((r) => r.jobId === meta.jobId) : null;
+  const pending = meta.status === 'pending';
+  const stale = pending && isStale(meta);
 
-  detail.innerHTML = `
+  const header = `
     <div class="detail-head">
       <div class="detail-title">
         <h2>${meta.jobId ? esc(meta.shard) : 'Run detail'}</h2>
         <span class="platform-tag">${esc(run.platform)}</span>
         ${run.ciRunUrl ? `<a class="ci-link" href="${esc(run.ciRunUrl)}" target="_blank" rel="noopener noreferrer">View / re-run in GitHub Actions →</a>` : ''}
       </div>
-      <div class="detail-sub">${fmtTime(meta.startedAt)} · ran ${fmtDuration(run.startedAt, run.finishedAt)}</div>
+      <div class="detail-sub">${pending ? `started ${fmtTime(meta.startedAt)}` : `${fmtTime(meta.startedAt)} · ran ${fmtDuration(run.startedAt, run.finishedAt)}`}</div>
       ${jobSiblings ? `
         <div class="job-context">
           <span>Part of job <strong class="mono">${esc(meta.jobId)}</strong>:</span>
           ${jobSiblings.map((s) => `<a class="sib${s.id === id ? ' current' : ''}" href="#${encodeURIComponent(slug)}/${encodeURIComponent(s.id)}" title="${esc(s.shard)}">${esc(s.shard)}</a>`).join('')}
         </div>` : ''}
-    </div>
+    </div>`;
+
+  if (pending) {
+    detail.innerHTML = header + `
+      <div class="running-panel${stale ? ' stale' : ''}">
+        <span class="pulse-dot"></span>
+        <h3>${stale ? "Hasn't reported in a while" : 'Still running…'}</h3>
+        <p>${stale
+          ? `No update in over an hour (started ${elapsedSince(meta.startedAt)} ago) — kestrel can't tell whether this was cancelled. ${run.ciRunUrl ? 'Check GitHub Actions for the actual status.' : ''}`
+          : `Started ${elapsedSince(meta.startedAt)} ago. Results will appear here once the run finishes${run.ciRunUrl ? ' — or follow along live in GitHub Actions.' : '.'}`}</p>
+      </div>`;
+    schedulePendingPoll(slug, id);
+    return;
+  }
+
+  detail.innerHTML = header + `
     <div class="stat-strip">
       <div class="stat-tile ok"><span class="n tabular">${meta.passed}</span><span class="l">Passed</span></div>
       <div class="stat-tile bad"><span class="n tabular">${meta.failed}</span><span class="l">Failed</span></div>
