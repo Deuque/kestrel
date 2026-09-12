@@ -1,13 +1,15 @@
 [
   {
-    "id": "2026-09-12T11-40-30-122Z-17bedc",
+    "id": "2026-09-12T14-56-18-183Z-c1c0b3",
     "project": "my-nomba-app2",
     "platform": "appium",
-    "jobId": "gh-run-34687638867",
-    "shard": "shard-1",
-    "startedAt": "2026-09-12T11:35:30.667Z",
-    "finishedAt": "2026-09-12T11:40:30.121Z",
-    "passed": 3,
+    "jobId": "gh-run-34700562027",
+    "shard": "shard-0",
+    "ciRunUrl": "https://github.com/d-nomba/my-nomba-app/actions/runs/34700562027",
+    "status": "pending",
+    "startedAt": "2026-09-12T14:56:18.183Z",
+    "finishedAt": "2026-09-12T14:56:18.183Z",
+    "passed": 0,
     "failed": 0,
     "skipped": 0,
     "errored": 0
@@ -26,16 +28,16 @@
     "errored": 0
   },
   {
-    "id": "2026-09-12T10-31-19-080Z-69dce8",
+    "id": "2026-09-12T11-40-30-122Z-17bedc",
     "project": "my-nomba-app2",
     "platform": "appium",
     "jobId": "gh-run-34687638867",
-    "shard": "shard-0",
-    "startedAt": "2026-09-12T10:11:25.714Z",
-    "finishedAt": "2026-09-12T10:31:19.075Z",
-    "passed": 13,
-    "failed": 1,
-    "skipped": 1,
+    "shard": "shard-1",
+    "startedAt": "2026-09-12T11:35:30.667Z",
+    "finishedAt": "2026-09-12T11:40:30.121Z",
+    "passed": 3,
+    "failed": 0,
+    "skipped": 0,
     "errored": 0
   },
   {
@@ -52,16 +54,16 @@
     "errored": 0
   },
   {
-    "id": "2026-09-12T09-27-15-434Z-ac6406",
+    "id": "2026-09-12T10-31-19-080Z-69dce8",
     "project": "my-nomba-app2",
     "platform": "appium",
-    "jobId": "gh-run-34685186451",
+    "jobId": "gh-run-34687638867",
     "shard": "shard-0",
-    "startedAt": "2026-09-12T09:15:02.930Z",
-    "finishedAt": "2026-09-12T09:27:15.434Z",
-    "passed": 4,
-    "failed": 0,
-    "skipped": 0,
+    "startedAt": "2026-09-12T10:11:25.714Z",
+    "finishedAt": "2026-09-12T10:31:19.075Z",
+    "passed": 13,
+    "failed": 1,
+    "skipped": 1,
     "errored": 0
   },
   {
@@ -73,6 +75,19 @@
     "startedAt": "2026-09-12T09:15:31.206Z",
     "finishedAt": "2026-09-12T09:26:09.746Z",
     "passed": 10,
+    "failed": 0,
+    "skipped": 0,
+    "errored": 0
+  },
+  {
+    "id": "2026-09-12T09-27-15-434Z-ac6406",
+    "project": "my-nomba-app2",
+    "platform": "appium",
+    "jobId": "gh-run-34685186451",
+    "shard": "shard-0",
+    "startedAt": "2026-09-12T09:15:02.930Z",
+    "finishedAt": "2026-09-12T09:27:15.434Z",
+    "passed": 4,
     "failed": 0,
     "skipped": 0,
     "errored": 0
@@ -104,19 +119,6 @@
     "errored": 0
   },
   {
-    "id": "2026-09-12T00-59-15-884Z-e25f4b",
-    "project": "my-nomba-app2",
-    "platform": "appium",
-    "jobId": "gh-run-34661824810",
-    "shard": "shard-0",
-    "startedAt": "2026-09-12T00:33:37.270Z",
-    "finishedAt": "2026-09-12T00:59:15.883Z",
-    "passed": 13,
-    "failed": 1,
-    "skipped": 1,
-    "errored": 0
-  },
-  {
     "id": "2026-09-12T00-44-50-607Z-19caa6",
     "project": "my-nomba-app2",
     "platform": "appium",
@@ -130,15 +132,15 @@
     "errored": 0
   },
   {
-    "id": "2026-09-12T00-08-19-137Z-e7e9df",
+    "id": "2026-09-12T00-59-15-884Z-e25f4b",
     "project": "my-nomba-app2",
     "platform": "appium",
-    "jobId": "gh-run-34659220806",
+    "jobId": "gh-run-34661824810",
     "shard": "shard-0",
-    "startedAt": "2026-09-11T23:48:15.898Z",
-    "finishedAt": "2026-09-12T00:08:19.136Z",
-    "passed": 7,
-    "failed": 7,
+    "startedAt": "2026-09-12T00:33:37.270Z",
+    "finishedAt": "2026-09-12T00:59:15.883Z",
+    "passed": 13,
+    "failed": 1,
     "skipped": 1,
     "errored": 0
   },
@@ -153,6 +155,19 @@
     "passed": 0,
     "failed": 10,
     "skipped": 0,
+    "errored": 0
+  },
+  {
+    "id": "2026-09-12T00-08-19-137Z-e7e9df",
+    "project": "my-nomba-app2",
+    "platform": "appium",
+    "jobId": "gh-run-34659220806",
+    "shard": "shard-0",
+    "startedAt": "2026-09-11T23:48:15.898Z",
+    "finishedAt": "2026-09-12T00:08:19.136Z",
+    "passed": 7,
+    "failed": 7,
+    "skipped": 1,
     "errored": 0
   }
 ]
