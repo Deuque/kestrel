@@ -147,6 +147,23 @@ lightbox), and network/error layout are all automatic — nothing to opt into,
 and no change needed to an existing `kestrel.config.json`. The only opt-in
 piece is grouping split runs into a job, below.
 
+A run shows as **pending** on the dashboard from the moment kestrel starts —
+a placeholder is published immediately, then updated with real results when
+the run finishes, so a job in progress is visible rather than only appearing
+once it's done. Kestrel has no way to know if a CI job was cancelled or the
+runner died before that second publish, so a pending run older than an hour
+is shown as "not reporting" instead of running forever — check the linked
+GitHub Actions run (below) for the real status in that case.
+
+On GitHub Actions, every run also links back to the Actions run it came
+from ("View / re-run in GitHub Actions"), using `$GITHUB_SERVER_URL` /
+`$GITHUB_REPOSITORY` / `$GITHUB_RUN_ID` — set automatically on every
+runner, nothing to configure. Kestrel doesn't try to trigger a re-run
+itself: a static gh-pages site has no safe place to hold a token with
+`actions:write`, so it defers to GitHub's own re-run buttons and
+permissions instead. Only runs published after this feature shipped carry
+the link — it can't be added retroactively to already-published runs.
+
 To publish a run there, add to `kestrel.config.json`:
 
 ```json

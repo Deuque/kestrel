@@ -4,7 +4,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { startAppiumServer, stopAppiumServer } from "./appiumServer.js";
 import { loadConfig, type KestrelConfig } from "./config.js";
-import { publishToDashboard } from "./dashboard.js";
+import { publishRunFinished, publishRunStarted } from "./dashboard.js";
 import { findJUnitFiles, parseJUnitFile } from "./junit.js";
 import { renderHtmlReport } from "./report/html.js";
 import { renderSummaryMarkdown } from "./report/summary.js";
@@ -28,6 +28,9 @@ async function main(): Promise<void> {
   const config = loadConfig(configPath);
 
   const startedAt = new Date().toISOString();
+  const pendingRun = config.dashboard ? await publishRunStarted(config.dashboard, config.platform) : null;
+  if (pendingRun) console.log("Published pending run to dashboard.");
+
   const testCommandExitCode =
     config.platform === "appium" ? await runAppiumSuite(config) : await runTestCommand(config.testCommand);
 
@@ -52,7 +55,7 @@ async function main(): Promise<void> {
   };
 
   const dashboardUrl = config.dashboard
-    ? await publishToDashboard(config.dashboard, summary, config.platform)
+    ? await publishRunFinished(config.dashboard, pendingRun, summary, config.platform)
     : null;
 
   const reportDir = config.reportDir!;

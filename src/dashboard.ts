@@ -39,6 +39,14 @@ export interface DashboardConfig {
   shard?: string;
 }
 
+export interface PendingRun {
+  id: string;
+  jobId: string | null;
+  shard: string | null;
+}
+
+type DashboardRunStatus = "pending" | "passed" | "failed";
+
 interface DashboardRunRecord {
   id: string;
   project: string;
@@ -46,6 +54,7 @@ interface DashboardRunRecord {
   jobId: string | null;
   shard: string | null;
   ciRunUrl: string | null;
+  status: DashboardRunStatus;
   startedAt: string;
   finishedAt: string;
   passed: number;
@@ -66,21 +75,78 @@ interface DashboardRunRecord {
   }[];
 }
 
-const MAX_PUSH_ATTEMPTS = 5;
+// Publishing now happens twice per run (started, then finished) instead of
+// once, roughly doubling push contention when several shards of one job
+// race to publish at the same time — raised from 5 after load-testing showed
+// occasional exhaustion at 5 with 5-way concurrency (harmless: a failed
+// "started" publish just falls back to appearing only once finished).
+const MAX_PUSH_ATTEMPTS = 10;
+
+function newRunId(): string {
+  return `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomBytes(3).toString("hex")}`;
+}
+
+function resolveJobIdentity(config: DashboardConfig, id: string): { jobId: string | null; shard: string | null } {
+  const jobId = config.jobId ?? process.env.KESTREL_JOB_ID ?? null;
+  const shard = config.shard ?? process.env.KESTREL_SHARD ?? (jobId ? id.slice(-6) : null);
+  return { jobId, shard };
+}
 
 /**
- * Pushes this run's summary — screenshots embedded as base64 — to
- * projects/<slug>/runs/<id>.json on the dashboard's gh-pages branch,
- * updates that project's runs/index.json, and upserts this project's entry
- * in the top-level projects/index.json. Needs a GitHub token with push
- * access to `config.repo` in KESTREL_DASHBOARD_TOKEN. Never throws: a
- * dashboard publish failure (missing token, network blip, exhausted
- * retries) is logged and skipped rather than failing the actual test run —
- * the real report already exists locally regardless of whether this
- * succeeds.
+ * Publishes a placeholder record the moment a run starts — status
+ * "pending", zero counts — so the dashboard can show it as running rather
+ * than only appearing once results exist (see publishRunFinished). Returns
+ * the identity to pass into publishRunFinished so it updates this same
+ * record instead of creating a second one; null if publish is skipped
+ * (missing token) or fails, in which case publishRunFinished falls back to
+ * publishing fresh.
  */
-export async function publishToDashboard(
+export async function publishRunStarted(config: DashboardConfig, platform: string): Promise<PendingRun | null> {
+  const token = process.env.KESTREL_DASHBOARD_TOKEN;
+  if (!token) {
+    console.warn("KESTREL_DASHBOARD_TOKEN not set — skipping dashboard publish.");
+    return null;
+  }
+
+  const id = newRunId();
+  const { jobId, shard } = resolveJobIdentity(config, id);
+  const now = new Date().toISOString();
+  const record: DashboardRunRecord = {
+    id,
+    project: config.project,
+    platform,
+    jobId,
+    shard,
+    ciRunUrl: githubActionsRunUrl(),
+    status: "pending",
+    startedAt: now,
+    finishedAt: now,
+    passed: 0,
+    failed: 0,
+    skipped: 0,
+    errored: 0,
+    suites: [],
+  };
+
+  const url = await publishRecord(config, token, record, { updateProjectIndex: false });
+  return url === null ? null : { id, jobId, shard };
+}
+
+/**
+ * Publishes the finished run — real counts, status "passed"/"failed" — and
+ * upserts this project's entry in the top-level projects/index.json.
+ * Updates the record `pending` identifies (from publishRunStarted) in
+ * place, matched by id, rather than adding a second entry for the same
+ * run; if `pending` is null (the start publish was skipped or failed),
+ * publishes fresh instead. Needs a GitHub token with push access to
+ * `config.repo` in KESTREL_DASHBOARD_TOKEN. Never throws: a dashboard
+ * publish failure (missing token, network blip, exhausted retries) is
+ * logged and skipped rather than failing the actual test run — the real
+ * report already exists locally regardless of whether this succeeds.
+ */
+export async function publishRunFinished(
   config: DashboardConfig,
+  pending: PendingRun | null,
   summary: RunSummary,
   platform: string
 ): Promise<string | null> {
@@ -90,14 +156,8 @@ export async function publishToDashboard(
     return null;
   }
 
-  const slug = slugify(config.project);
-  const branch = config.branch ?? "gh-pages";
-  const remote = `https://x-access-token:${token}@github.com/${config.repo}.git`;
-  const workDir = mkdtempSync(join(tmpdir(), "kestrel-dashboard-"));
-
-  const id = `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomBytes(3).toString("hex")}`;
-  const jobId = config.jobId ?? process.env.KESTREL_JOB_ID ?? null;
-  const shard = config.shard ?? process.env.KESTREL_SHARD ?? (jobId ? id.slice(-6) : null);
+  const id = pending?.id ?? newRunId();
+  const { jobId, shard } = pending ?? resolveJobIdentity(config, id);
   const record: DashboardRunRecord = {
     id,
     project: config.project,
@@ -105,6 +165,7 @@ export async function publishToDashboard(
     jobId,
     shard,
     ciRunUrl: githubActionsRunUrl(),
+    status: summary.failed + summary.errored > 0 ? "failed" : "passed",
     startedAt: summary.startedAt,
     finishedAt: summary.finishedAt,
     passed: summary.passed,
@@ -125,11 +186,25 @@ export async function publishToDashboard(
     })),
   };
 
+  return publishRecord(config, token, record, { updateProjectIndex: true });
+}
+
+async function publishRecord(
+  config: DashboardConfig,
+  token: string,
+  record: DashboardRunRecord,
+  opts: { updateProjectIndex: boolean }
+): Promise<string | null> {
+  const slug = slugify(config.project);
+  const branch = config.branch ?? "gh-pages";
+  const remote = `https://x-access-token:${token}@github.com/${config.repo}.git`;
+  const workDir = mkdtempSync(join(tmpdir(), "kestrel-dashboard-"));
+
   try {
     await run("git", ["clone", "--quiet", "--depth", "1", "--branch", branch, remote, workDir]);
 
     for (let attempt = 1; attempt <= MAX_PUSH_ATTEMPTS; attempt++) {
-      writeRunFiles(workDir, slug, record);
+      writeRunFiles(workDir, slug, record, opts.updateProjectIndex);
 
       await run("git", ["-C", workDir, "add", "-A"]);
       const changed = await hasStagedChanges(workDir);
@@ -144,7 +219,7 @@ export async function publishToDashboard(
           "commit",
           "--quiet",
           "-m",
-          `Publish ${slug} run ${id}`,
+          `Publish ${slug} run ${record.id} (${record.status})`,
         ]);
       }
 
@@ -170,30 +245,42 @@ export async function publishToDashboard(
   }
 }
 
-function writeRunFiles(workDir: string, slug: string, record: DashboardRunRecord): void {
+function writeRunFiles(workDir: string, slug: string, record: DashboardRunRecord, updateProjectIndex: boolean): void {
   const projectDir = join(workDir, "projects", slug);
   const runsDir = join(projectDir, "runs");
   mkdirSync(runsDir, { recursive: true });
   writeFileSync(join(runsDir, `${record.id}.json`), JSON.stringify(record));
 
   const runIndexPath = join(runsDir, "index.json");
-  const runIndex = readJsonArray(runIndexPath);
-  runIndex.unshift({
+  const runIndex = readJsonArray(runIndexPath) as Array<Record<string, unknown>>;
+  const indexEntry = {
     id: record.id,
     project: record.project,
     platform: record.platform,
     jobId: record.jobId,
     shard: record.shard,
     ciRunUrl: record.ciRunUrl,
+    status: record.status,
     startedAt: record.startedAt,
     finishedAt: record.finishedAt,
     passed: record.passed,
     failed: record.failed,
     skipped: record.skipped,
     errored: record.errored,
-  });
+  };
+  // publishRunFinished updates the same entry publishRunStarted created
+  // (matched by id) instead of adding a duplicate for the same run.
+  const existingRun = runIndex.findIndex((r) => r.id === record.id);
+  if (existingRun >= 0) runIndex[existingRun] = indexEntry;
+  else runIndex.unshift(indexEntry);
+  runIndex.sort((a, b) => new Date(b.startedAt as string).getTime() - new Date(a.startedAt as string).getTime());
   // Keep each project's manifest small — the dashboard fetches this on every load.
   writeFileSync(runIndexPath, JSON.stringify(runIndex.slice(0, 200), null, 2));
+
+  // The pending publish (run just started, counts all zero) must not
+  // clobber the project card's "last known" snapshot — only a finished
+  // run's real numbers should update it.
+  if (!updateProjectIndex) return;
 
   const projectIndexPath = join(workDir, "projects", "index.json");
   const projectIndex = readJsonArray(projectIndexPath) as Array<Record<string, unknown>>;
