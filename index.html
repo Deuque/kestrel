@@ -628,7 +628,7 @@ function renderNetwork(entries) {
   if (!entries || entries.length === 0) return '';
   const failedCount = entries.filter((e) => (e.statusCode !== undefined && e.statusCode !== null && e.statusCode >= 400) || (e.snippet && (e.statusCode === undefined || e.statusCode === null))).length;
   return `
-    <details class="network" ${failedCount ? 'open' : ''}>
+    <details class="network">
       <summary class="network-summary"><svg class="arrow" width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>Network — ${entries.length} call${entries.length === 1 ? '' : 's'}${failedCount ? `, ${failedCount} failed` : ''}</summary>
       <div class="network-entries">
         ${entries.map((e) => {
