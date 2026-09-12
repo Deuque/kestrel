@@ -135,6 +135,25 @@
 
   /* ---------- workspace (project view) ---------- */
   .workspace { display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: start; }
+
+  .rail { display: flex; flex-direction: column; gap: 8px; position: sticky; top: 28px; }
+  .rail-list { display: flex; flex-direction: column; gap: 8px; }
+  .rail-title { font-size: 11px; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; padding: 0 2px 2px; }
+  .run-picker {
+    display: none; width: 100%; font: inherit; font-size: 13px; color: var(--text);
+    background: var(--surface); border: 1px solid var(--border); border-radius: 9px;
+    padding: 10px 12px; appearance: none;
+    background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235c6a78' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center; background-size: 16px;
+  }
+  .run-picker:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* Placed AFTER the plain .rail/.rail-list/.run-picker rules above on
+     purpose: for equal-specificity selectors, CSS resolves ties by source
+     order, not by whether a media query's condition is true — an override
+     declared *before* the rule it's meant to override loses the cascade
+     and silently does nothing, which is exactly what happened here the
+     first two times this was "fixed". */
   @media (max-width: 860px) {
     .workspace { grid-template-columns: 1fr; }
     /* Sticky only makes sense beside a column it doesn't cover — stacked
@@ -149,18 +168,6 @@
     .rail-list { display: none; }
     .run-picker { display: block; }
   }
-
-  .rail { display: flex; flex-direction: column; gap: 8px; position: sticky; top: 28px; }
-  .rail-list { display: flex; flex-direction: column; gap: 8px; }
-  .rail-title { font-size: 11px; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; padding: 0 2px 2px; }
-  .run-picker {
-    display: none; width: 100%; font: inherit; font-size: 13px; color: var(--text);
-    background: var(--surface); border: 1px solid var(--border); border-radius: 9px;
-    padding: 10px 12px; appearance: none;
-    background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235c6a78' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-    background-repeat: no-repeat; background-position: right 10px center; background-size: 16px;
-  }
-  .run-picker:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
   .run-row, .job-head {
     width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
