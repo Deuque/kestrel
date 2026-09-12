@@ -41,7 +41,7 @@ function renderNetworkLogs(entries: NetworkEntry[] | undefined): string {
     .join("");
 
   return `
-    <details class="network" ${failedCount > 0 ? "open" : ""}>
+    <details class="network">
       <summary class="network-summary"><svg class="arrow" width="11" height="11" viewBox="0 0 24 24" fill="none"><path d="M9 6l6 6-6 6" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>${label}</summary>
       <div class="network-entries">${rows}</div>
     </details>`;
