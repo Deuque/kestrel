@@ -186,6 +186,11 @@
   .detail-title { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
   .detail-title h2 { font-size: 17px; font-weight: 700; }
   .detail-sub { color: var(--text-muted); font-size: 12.5px; margin-top: 3px; }
+  .ci-link {
+    margin-left: auto; font-size: 12px; font-weight: 600; color: var(--accent);
+    text-decoration: none; border: 1px solid var(--border); border-radius: 999px; padding: 4px 11px;
+  }
+  .ci-link:hover { border-color: var(--accent); }
   .job-context {
     margin-top: 10px; font-size: 12.5px; color: var(--text-muted);
     background: var(--surface-2); border: 1px solid var(--border); border-radius: 8px;
@@ -544,6 +549,7 @@ async function loadRun(slug, id, runs) {
       <div class="detail-title">
         <h2>${meta.jobId ? esc(meta.shard) : 'Run detail'}</h2>
         <span class="platform-tag">${esc(run.platform)}</span>
+        ${run.ciRunUrl ? `<a class="ci-link" href="${esc(run.ciRunUrl)}" target="_blank" rel="noopener noreferrer">View / re-run in GitHub Actions →</a>` : ''}
       </div>
       <div class="detail-sub">${fmtTime(meta.startedAt)} · ran ${fmtDuration(run.startedAt, run.finishedAt)}</div>
       ${jobSiblings ? `
