@@ -143,10 +143,24 @@
        also has known bugs with `sticky` grid children that make this worse
        than a plain reflow issue). */
     .rail { position: static; top: auto; }
+    /* And a long list is its own mobile problem even without the sticky
+       bug — collapse it into a native picker so only the selected run is
+       ever visible; everything else lives inside the closed dropdown. */
+    .rail-list { display: none; }
+    .run-picker { display: block; }
   }
 
   .rail { display: flex; flex-direction: column; gap: 8px; position: sticky; top: 28px; }
+  .rail-list { display: flex; flex-direction: column; gap: 8px; }
   .rail-title { font-size: 11px; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; padding: 0 2px 2px; }
+  .run-picker {
+    display: none; width: 100%; font: inherit; font-size: 13px; color: var(--text);
+    background: var(--surface); border: 1px solid var(--border); border-radius: 9px;
+    padding: 10px 12px; appearance: none;
+    background-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235c6a78' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center; background-size: 16px;
+  }
+  .run-picker:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 
   .run-row, .job-head {
     width: 100%; text-align: left; font: inherit; color: inherit; cursor: pointer;
@@ -491,8 +505,11 @@ async function renderProject(slug, requestedRunId) {
   view.innerHTML = `
     <div class="workspace">
       <nav class="rail">
-        <div class="rail-title">Runs</div>
-        ${groups.map((g) => g.job ? jobHtml(g.job, initialId) : runRowHtml(g.standalone, initialId)).join('')}
+        <select class="run-picker" id="run-picker" aria-label="Select a run">${runPickerOptions(groups, initialId)}</select>
+        <div class="rail-list">
+          <div class="rail-title">Runs</div>
+          ${groups.map((g) => g.job ? jobHtml(g.job, initialId) : runRowHtml(g.standalone, initialId)).join('')}
+        </div>
       </nav>
       <section class="detail" id="detail"><div class="empty">Loading…</div></section>
     </div>`;
@@ -504,21 +521,71 @@ async function renderProject(slug, requestedRunId) {
     el.addEventListener('click', async (e) => {
       e.stopPropagation();
       const id = el.dataset.runId;
-      history.replaceState(null, '', `#${encodeURIComponent(slug)}/${encodeURIComponent(id)}`);
+      selectRun(slug, id);
       document.querySelectorAll('.run-row, .shard-row').forEach((x) => x.classList.remove('active'));
       el.classList.add('active');
+      const picker = document.getElementById('run-picker');
+      if (picker) picker.value = id;
       await loadRun(slug, id, runs);
-      // Stacked single-column mobile: the rail can be long, so jump straight
-      // to the result instead of leaving the user to scroll past the list
-      // they just tapped in.
-      if (window.matchMedia('(max-width: 860px)').matches) {
-        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-        document.getElementById('detail').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
-      }
+      scrollToDetailOnMobile();
     });
+  });
+  document.getElementById('run-picker').addEventListener('change', async (e) => {
+    const id = e.target.value;
+    selectRun(slug, id);
+    const rowEl = document.querySelector(`[data-run-id="${CSS.escape(id)}"]`);
+    document.querySelectorAll('.run-row, .shard-row').forEach((x) => x.classList.remove('active'));
+    if (rowEl) {
+      rowEl.classList.add('active');
+      const jobEl = rowEl.closest('.job');
+      if (jobEl) jobEl.classList.add('open');
+    }
+    await loadRun(slug, id, runs);
+    scrollToDetailOnMobile();
   });
 
   loadRun(slug, initialId, runs);
+}
+
+function selectRun(slug, id) {
+  history.replaceState(null, '', `#${encodeURIComponent(slug)}/${encodeURIComponent(id)}`);
+}
+
+function prefersReducedMotion() {
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+// Stacked single-column mobile: the rail (or picker) can represent a long
+// list, so jump straight to the result instead of leaving the user to
+// scroll past whatever they just picked.
+function scrollToDetailOnMobile() {
+  if (window.matchMedia('(max-width: 860px)').matches) {
+    document.getElementById('detail').scrollIntoView({ behavior: prefersReducedMotion() ? 'auto' : 'smooth', block: 'start' });
+  }
+}
+
+function pickerLabel(r) {
+  const when = fmtTime(r.startedAt);
+  if (r.status === 'pending') return `${when} — ${isStale(r) ? 'not reporting' : `running ${elapsedSince(r.startedAt)}`}`;
+  return `${when} — ${r.passed} passed, ${r.failed + r.errored} failed${r.skipped ? `, ${r.skipped} skipped` : ''}`;
+}
+
+// Mirrors the job/run rows in the rail as <option>s so mobile gets a native,
+// closed-by-default picker instead of a long list to scroll through —
+// only the selected run's own label is ever visible until it's reopened.
+function runPickerOptions(groups, activeId) {
+  return groups
+    .map((g) => {
+      if (g.job) {
+        const opts = g.job.shards
+          .map((r) => `<option value="${esc(r.id)}"${r.id === activeId ? ' selected' : ''}>${esc(r.shard)} — ${esc(pickerLabel(r))}</option>`)
+          .join('');
+        return `<optgroup label="Job ${esc(g.job.jobId)} (${g.job.shards.length} shard${g.job.shards.length === 1 ? '' : 's'})">${opts}</optgroup>`;
+      }
+      const r = g.standalone;
+      return `<option value="${esc(r.id)}"${r.id === activeId ? ' selected' : ''}>${esc(pickerLabel(r))}</option>`;
+    })
+    .join('');
 }
 
 const STALE_MS = 60 * 60 * 1000; // a pending run older than this may have been cancelled — kestrel has no way to know for sure
