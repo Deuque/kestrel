@@ -45,6 +45,7 @@ interface DashboardRunRecord {
   platform: string;
   jobId: string | null;
   shard: string | null;
+  ciRunUrl: string | null;
   startedAt: string;
   finishedAt: string;
   passed: number;
@@ -103,6 +104,7 @@ export async function publishToDashboard(
     platform,
     jobId,
     shard,
+    ciRunUrl: githubActionsRunUrl(),
     startedAt: summary.startedAt,
     finishedAt: summary.finishedAt,
     passed: summary.passed,
@@ -182,6 +184,7 @@ function writeRunFiles(workDir: string, slug: string, record: DashboardRunRecord
     platform: record.platform,
     jobId: record.jobId,
     shard: record.shard,
+    ciRunUrl: record.ciRunUrl,
     startedAt: record.startedAt,
     finishedAt: record.finishedAt,
     passed: record.passed,
@@ -232,6 +235,22 @@ async function hasStagedChanges(workDir: string): Promise<boolean> {
 async function tryPush(workDir: string, branch: string): Promise<boolean> {
   const { code } = await runCapture("git", ["-C", workDir, "push", "--quiet", "origin", branch]);
   return code === 0;
+}
+
+/**
+ * Links a published run back to the GitHub Actions run that produced it, so
+ * the dashboard can offer "view / re-run in GitHub Actions" instead of
+ * kestrel trying to trigger a re-run itself — a static gh-pages site has no
+ * safe place to hold a token with actions:write, so this defers to GitHub's
+ * own re-run buttons and permissions instead. All three env vars are set
+ * automatically on every GitHub Actions runner; null outside that context
+ * (e.g. running kestrel locally, or on non-GitHub CI).
+ */
+function githubActionsRunUrl(): string | null {
+  const server = process.env.GITHUB_SERVER_URL;
+  const repo = process.env.GITHUB_REPOSITORY;
+  const runId = process.env.GITHUB_RUN_ID;
+  return server && repo && runId ? `${server}/${repo}/actions/runs/${runId}` : null;
 }
 
 function slugify(project: string): string {
