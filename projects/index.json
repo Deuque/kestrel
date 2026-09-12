@@ -28,14 +28,15 @@
   {
     "id": "my-nomba-app2",
     "project": "my-nomba-app2",
-    "lastPublishedAt": "2026-09-12T00:44:50.606Z",
+    "lastPublishedAt": "2026-09-12T00:59:15.883Z",
     "lastPlatform": "appium",
-    "lastPassed": 10,
-    "lastFailed": 0,
+    "lastPassed": 13,
+    "lastFailed": 1,
     "trend": [
       0,
       47,
-      100
+      100,
+      87
     ]
   }
 ]
