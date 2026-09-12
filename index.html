@@ -135,7 +135,15 @@
 
   /* ---------- workspace (project view) ---------- */
   .workspace { display: grid; grid-template-columns: 300px 1fr; gap: 20px; align-items: start; }
-  @media (max-width: 860px) { .workspace { grid-template-columns: 1fr; } }
+  @media (max-width: 860px) {
+    .workspace { grid-template-columns: 1fr; }
+    /* Sticky only makes sense beside a column it doesn't cover — stacked
+       single-column mobile just wants a normal scrolling list above the
+       detail pane, not a rail pinned over content as you scroll (WebKit
+       also has known bugs with `sticky` grid children that make this worse
+       than a plain reflow issue). */
+    .rail { position: static; top: auto; }
+  }
 
   .rail { display: flex; flex-direction: column; gap: 8px; position: sticky; top: 28px; }
   .rail-title { font-size: 11px; font-weight: 600; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; padding: 0 2px 2px; }
@@ -493,13 +501,20 @@ async function renderProject(slug, requestedRunId) {
     el.addEventListener('click', () => el.closest('.job').classList.toggle('open'));
   });
   document.querySelectorAll('[data-run-id]').forEach((el) => {
-    el.addEventListener('click', (e) => {
+    el.addEventListener('click', async (e) => {
       e.stopPropagation();
       const id = el.dataset.runId;
       history.replaceState(null, '', `#${encodeURIComponent(slug)}/${encodeURIComponent(id)}`);
       document.querySelectorAll('.run-row, .shard-row').forEach((x) => x.classList.remove('active'));
       el.classList.add('active');
-      loadRun(slug, id, runs);
+      await loadRun(slug, id, runs);
+      // Stacked single-column mobile: the rail can be long, so jump straight
+      // to the result instead of leaving the user to scroll past the list
+      // they just tapped in.
+      if (window.matchMedia('(max-width: 860px)').matches) {
+        const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        document.getElementById('detail').scrollIntoView({ behavior: reduceMotion ? 'auto' : 'smooth', block: 'start' });
+      }
     });
   });
 
