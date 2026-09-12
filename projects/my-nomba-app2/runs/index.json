@@ -1,5 +1,18 @@
 [
   {
+    "id": "2026-09-12T01-24-45-295Z-667d55",
+    "project": "my-nomba-app2",
+    "platform": "appium",
+    "jobId": "gh-run-34661824810",
+    "shard": "shard-0",
+    "startedAt": "2026-09-12T01:11:24.128Z",
+    "finishedAt": "2026-09-12T01:24:45.295Z",
+    "passed": 0,
+    "failed": 14,
+    "skipped": 1,
+    "errored": 0
+  },
+  {
     "id": "2026-09-12T00-59-15-884Z-e25f4b",
     "project": "my-nomba-app2",
     "platform": "appium",
