@@ -46,5 +46,16 @@
       75,
       50
     ]
+  },
+  {
+    "id": "my-nomba-app-selfhosted-split",
+    "project": "my-nomba-app-selfhosted-split",
+    "lastPublishedAt": "2026-09-13T10:16:11.606Z",
+    "lastPlatform": "appium",
+    "lastPassed": 0,
+    "lastFailed": 0,
+    "trend": [
+      0
+    ]
   }
 ]
