@@ -1,5 +1,20 @@
 [
   {
+    "id": "2026-09-13T10-43-13-011Z-7fa02b",
+    "project": "my-nomba-app2",
+    "platform": "appium",
+    "jobId": "gh-run-34752431864",
+    "shard": "shard-0",
+    "ciRunUrl": "https://github.com/d-nomba/my-nomba-app/actions/runs/34752431864",
+    "status": "pending",
+    "startedAt": "2026-09-13T10:43:13.011Z",
+    "finishedAt": "2026-09-13T10:43:13.011Z",
+    "passed": 0,
+    "failed": 0,
+    "skipped": 0,
+    "errored": 0
+  },
+  {
     "id": "2026-09-13T10-43-01-615Z-b0bfff",
     "project": "my-nomba-app2",
     "platform": "appium",
