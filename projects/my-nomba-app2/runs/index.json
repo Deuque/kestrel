@@ -6,13 +6,13 @@
     "jobId": "gh-run-35207801930",
     "shard": "shard-1",
     "ciRunUrl": "https://github.com/d-nomba/my-nomba-app/actions/runs/35207801930",
-    "status": "pending",
-    "startedAt": "2026-09-17T10:21:33.082Z",
-    "finishedAt": "2026-09-17T10:21:33.082Z",
+    "status": "failed",
+    "startedAt": "2026-09-17T10:21:33.081Z",
+    "finishedAt": "2026-09-17T10:28:51.819Z",
     "passed": 0,
-    "failed": 0,
+    "failed": 1,
     "skipped": 0,
-    "errored": 0
+    "errored": 7
   },
   {
     "id": "2026-09-17T10-21-20-438Z-efe4f3",
